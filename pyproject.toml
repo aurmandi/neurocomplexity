@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "neurocomplexity"
+version = "1.0.0"
+description = "Criticality, transfer entropy, and autonomy analyses for spike-sorted recordings."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Sazgar Arman Dinarvand" }]
+dependencies = [
+    "numpy>=1.24",
+    "scipy>=1.10",
+    "pandas>=2.0",
+    "statsmodels>=0.14",
+    "h5py>=3.8",
+    "pynwb>=2.5",
+    "tqdm>=4.65",
+    "joblib>=1.3",
+]
+
+[project.optional-dependencies]
+viz = ["matplotlib>=3.7", "plotly>=5.15", "dash>=2.10"]
+sim = ["netpyne", "mpi4py"]
+dev = ["pytest>=7.4", "pytest-cov>=4.1", "ruff>=0.4"]
+docs = [
+    "sphinx>=7.2,<9",
+    "myst-parser>=2.0,<5",
+    "myst-nb>=1.0,<2",
+    "furo>=2024.1.29",
+    "sphinx-copybutton>=0.5",
+    "sphinx-autodoc-typehints>=1.25,<3",
+]
+
+[project.scripts]
+neurocomplexity = "neurocomplexity.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["neurocomplexity*"]
+exclude = ["tests*", "results*", "tutorial*", "docs*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "requires_neuropixels: integration test needing the Allen NWB fixture",
+    "slow: long-running calibration test (run with `-m slow`)",
+]
