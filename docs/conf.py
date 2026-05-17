@@ -60,6 +60,22 @@ autodoc_default_options = {
     "show-inheritance": True,
 }
 
+# Optional dependencies that the [docs] extra does not install. Mock them
+# so autodoc can walk modules that top-import them (viz.* needs
+# matplotlib; io.nwb needs pynwb/h5py; io.spikeinterface needs
+# spikeinterface) without their wheels actually being present on the
+# Read the Docs builder.
+autodoc_mock_imports = [
+    "matplotlib",
+    "pynwb",
+    "h5py",
+    "spikeinterface",
+    "plotly",
+    "dash",
+    "netpyne",
+    "mpi4py",
+]
+
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
     "numpy": ("https://numpy.org/doc/stable/", None),
