@@ -2,7 +2,7 @@
 title: "neurocomplexity: a validated Python toolkit for criticality, information flow, and dimensionality analyses of spike-sorted recordings"
 running_title: "neurocomplexity: complexity analyses for spike trains"
 authors:
-  - name: "Sazgar Arman Dinarvand"
+  - name: "Arman Dinarvand"
     affiliation: "1"
     corresponding: true
     email: "armandinarvand@khu.ac.ir"
@@ -32,29 +32,33 @@ fragmented step in systems neuroscience. The relevant estimators —
 branching ratio, avalanche-distribution exponents, shape collapse,
 pairwise transfer entropy, partial information decomposition (PID),
 vector-autoregressive Granger autonomy, and participation-ratio
-dimensionality — are available individually in specialised codebases,
-but no open package implements them with a shared spike-train data
-model, validates them all against simulated ground truth on every
-release, and ships per-estimate statistical inference (block-bootstrap
-confidence intervals and surrogate-based null tests). We introduce
-**neurocomplexity**, an open-source Python package that fills this
-gap. The package is built around an immutable `SpikeRecording` data
-class with hashed provenance, lazy file-format adapters for
-Neurodata Without Borders, Phy curation directories, raw Kilosort
-output, and any SpikeInterface `BaseSorting`, and a unified
-`InferenceResult` carrying bias-corrected bootstrap intervals,
-Phipson–Smyth-corrected surrogate $p$-values, and Benjamini–Hochberg
-false-discovery-rate adjustment. An eleven-case benchmark suite, run
-in continuous integration on every commit and shipped as a frozen
-CSV with every release, asserts that every estimator recovers ground
-truth on synthetic data drawn from coupled AR(1) processes,
-branching networks, structured-covariance generators, and analytic
-Williams–Beer PID distributions. We describe the architecture,
-report the validated benchmark baseline, and outline an end-to-end
-demonstration on a publicly available Allen Brain Observatory
-Neuropixels session. neurocomplexity v1.1.0 is released under the
-MIT licence at <https://github.com/aurmandi/neurocomplexity> and
-archived on Zenodo.
+dimensionality — are well-served individually by specialised
+toolboxes such as MR.Estimator [@spitzner2021mrestimator] for the
+branching ratio, IDTxl [@wollstadt2019idtxl] for multivariate
+information dynamics, JIDT [@lizier2014jidt] for general
+information-theoretic measures, MVGC [@barnett2014mvgc] for Granger
+causality, Elephant [@denker2018elephant] for spike-train statistics
+on the Neo data model, and SpikeInterface [@buccino2020spikeinterface]
+for sorter-stage workflows. No single open package, however, integrates
+all seven analysis families on a shared immutable spike-train data
+model, ships uniform per-estimate statistical inference
+(block-bootstrap confidence intervals and surrogate null tests), and
+asserts recovery of synthetic ground truth for every estimator on
+every release. We introduce **neurocomplexity**, a Python package that
+fills this integration gap. It is built around an immutable
+`SpikeRecording` data class with hashed provenance, lazy file-format
+adapters for Neurodata Without Borders, Phy curation directories,
+raw Kilosort output, and any SpikeInterface `BaseSorting`, and a
+unified `InferenceResult` carrying bias-corrected bootstrap
+intervals, Phipson–Smyth-corrected surrogate $p$-values, and
+Benjamini–Hochberg false-discovery-rate adjustment. An eleven-case
+benchmark suite verifies every estimator against simulator-derived
+ground truth (coupled AR(1) processes, branching networks,
+structured-covariance generators, and analytic Williams–Beer
+distributions); a frozen baseline CSV accompanies every release. We
+describe the architecture, report the validation benchmark, and
+outline an end-to-end demonstration on a publicly available Allen
+Brain Observatory Neuropixels session.
 
 **Keywords:** neuronal avalanches, branching ratio, transfer
 entropy, partial information decomposition, criticality, spike-sorted
@@ -74,53 +78,102 @@ effective connectivity from spike trains
 decomposed redundant and synergistic contributions of multiple
 sources via partial information decomposition (PID)
 [@williams2010nonnegative; @timme2014synergy], and characterised the
-effective dimensionality of population activity through eigenvalue-
-based summaries of the covariance spectrum
+effective dimensionality of population activity through
+eigenvalue-based summaries of the covariance spectrum
 [@rajan2006eigenvalue; @cunningham2014dimensionality;
-@stringer2019highdimensional]. Each of these families is now
-standard methodology in papers analysing high-density
-extracellular recordings.
+@stringer2019highdimensional]. These families are unevenly adopted:
+branching-ratio estimation and transfer entropy are now widely
+standard in spike-train work, dimensionality (in the
+participation-ratio sense) has become routine since
+[@stringer2019highdimensional], while partial information
+decomposition and avalanche shape collapse remain more specialised
+but rapidly growing literatures.
 
-In practice, however, applying them is harder than the literature
-suggests. The relevant estimators are distributed across
-heterogeneous toolboxes (typically MATLAB or Java), are often
-written for one specific recording modality, are usually without
-statistical inference attached, and are almost never validated
-end-to-end against simulators with known ground truth. The result
-is that two laboratories analysing the same data can obtain
-different numbers, and reviewers are left to evaluate quantitative
-claims without a reproducible baseline.
+Each family answers a different question about the same recording.
+The branching ratio asks whether the population is amplifying or
+damping perturbations on average — a single scalar that distinguishes
+sub-critical, critical, and super-critical operation
+[@wilting2018inferring]. Avalanche exponents and shape collapse
+characterise the heavy-tailed event-size statistics that
+self-organised-critical systems are predicted to display
+[@friedman2012universal; @sethna2001crackling]. Pairwise transfer
+entropy quantifies how much the future of one population is reduced
+in uncertainty by the past of another, beyond its own history
+[@schreiber2000measuring]. Partial information decomposition resolves
+that joint information into redundant, unique, and synergistic
+contributions of multiple sources [@williams2010nonnegative].
+VAR-Granger autonomy asks the inverse question — to what extent the
+target is statistically independent of the rest of the recording
+[@granger1969investigating; @barnett2014mvgc]. Participation-ratio
+dimensionality summarises the effective rank of the population
+covariance into one number [@rajan2006eigenvalue;
+@cunningham2014dimensionality]. A paper that wants to characterise a
+single cortical area along all of these axes simultaneously is asking
+a perfectly reasonable scientific question that, in practice,
+requires assembling and validating estimators from several different
+toolchains.
+
+The existing toolchain landscape is rich but fragmented. MR.Estimator
+[@spitzner2021mrestimator] is the canonical Python implementation of
+the subsampling-robust multi-step regression branching-ratio
+estimator, with bootstrap confidence intervals built in. IDTxl
+[@wollstadt2019idtxl] provides multivariate transfer entropy,
+mutual information, active information storage, and a BROJA partial
+information decomposition with hierarchical surrogate permutation
+tests. JIDT [@lizier2014jidt] offers a comprehensive Java
+implementation of information-theoretic measures with surrogate
+significance testing. MVGC [@barnett2014mvgc; @seth2015granger] is
+the reference MATLAB toolbox for multivariate Granger causality with
+Monte-Carlo significance testing against VAR ground truth. Elephant
+[@denker2018elephant] is the leading open-source Python toolkit for
+spike-train statistics, built on the Neo `SpikeTrain` data model.
+SpikeInterface [@buccino2020spikeinterface] is the de facto framework
+for spike sorting and sorter comparison, with extensive ground-truth
+validation for the sorting step itself. Each of these toolboxes is
+excellent within its own scope. No single open package, however,
+exposes all seven analysis families used in the criticality /
+effective-connectivity / dimensionality literature behind a single
+immutable spike-train data model, with uniform per-estimate
+block-bootstrap intervals and surrogate null tests, and ships a
+release-pinned benchmark CSV asserting recovery of synthetic ground
+truth for every estimator. The practical result is that a paper
+combining several of these families typically requires custom glue
+code and ad-hoc per-estimator inference, with no shared baseline that
+reviewers can re-run.
 
 Three recent developments compound the problem. First, the
 near-universal adoption of Kilosort and Phy for spike sorting
 [@rossant2016spike; @pachitariu2024spike] means that the input to
 any analysis pipeline is increasingly a directory of `.npy` and
-`.tsv` files rather than a curated MATLAB structure. Second, the
-SpikeInterface framework [@buccino2020spikeinterface] has unified
-the upstream sorting world but does not provide downstream
-complexity analyses. Third, the Wilting–Priesemann multi-step
+`.tsv` files rather than a curated MATLAB structure. Second,
+although SpikeInterface [@buccino2020spikeinterface] has unified the
+upstream sorting world, downstream complexity analyses still require
+a separate ecosystem. Third, the Wilting–Priesemann multi-step
 regression estimator of the branching ratio
 [@wilting2018inferring] has shown that classical avalanche-based
 estimators are systematically biased under sub-sampled recordings
-[@levina2017subsampling], implying that older toolchains may need
-to be revisited.
+[@levina2017subsampling], implying that older toolchains may need to
+be revisited where they have not adopted subsampling-robust
+estimators.
 
-**neurocomplexity** addresses these problems in a single,
-versioned, MIT-licensed Python package. Its contributions are:
-(i) a single immutable spike-train data model used by every
-estimator, populated from NWB, Phy, raw Kilosort, or
-SpikeInterface; (ii) seven analysis families covering branching
-ratio, avalanche exponents, shape collapse, transfer entropy, PID,
-VAR-Granger autonomy, and participation-ratio dimensionality;
-(iii) a unified statistical-inference layer wrapping every
-estimator in block-bootstrap confidence intervals and surrogate
-null tests; and (iv) an eleven-case benchmark suite that runs on
-every release and asserts that every estimator recovers ground
-truth on synthetic data with closed-form or simulator-derived
-expected values. We describe the design, report the validation
-benchmark baseline, and outline an end-to-end demonstration on a
-publicly available Allen Brain Observatory Neuropixels recording
-[@siegle2021survey].
+**neurocomplexity** is positioned as an integrator rather than an
+inventor. Its contributions are: (i) a single immutable
+`SpikeRecording` data model used by every estimator, populated from
+NWB, Phy, raw Kilosort, or any SpikeInterface `BaseSorting`; (ii)
+seven analysis families covering branching ratio, avalanche
+exponents, shape collapse, pairwise transfer entropy, PID,
+VAR-Granger autonomy, and participation-ratio dimensionality, each
+implemented with reference to the canonical specialist toolbox above
+and validated against the same simulator-derived ground truth;
+(iii) a unified statistical-inference layer wrapping every estimator
+in block-bootstrap confidence intervals and Phipson–Smyth-corrected
+surrogate null tests with Benjamini–Hochberg multiple-comparison
+adjustment; and (iv) an eleven-case benchmark suite that runs on
+every release and asserts that every estimator recovers its
+respective ground truth within documented tolerances. We describe
+the design, report the validation benchmark, and outline an
+end-to-end demonstration on a publicly available Allen Brain
+Observatory Neuropixels recording [@siegle2021survey].
 
 ---
 
@@ -469,21 +522,34 @@ Phy support never installs `pynwb`, which has historically been a
 frequent pain point in laboratory environments with strict
 dependency policies.
 
-### Related software
+### Related software and complementary positioning
 
-neurocomplexity does not aim to replace specialised single-purpose
-toolboxes. The MVGC toolbox [@barnett2014mvgc] remains the
-reference implementation for advanced Granger-causality work in
-MATLAB; JIDT [@lizier2014jidt] is the canonical Java toolkit for
-information-theoretic analyses including high-dimensional transfer
-entropy and PID; SpikeInterface [@buccino2020spikeinterface] is the
-de facto framework for spike sorting and curation. neurocomplexity
-is complementary: it combines seven analysis families with one data
-model, one inference layer, one validation matrix, and one citable
-release, so that a paper applying multiple families simultaneously
-to a Phy- or Kilosort-curated recording can do so reproducibly
-without writing glue code, and so that any quantitative claim made
-in such a paper is backed by a publicly verifiable benchmark.
+neurocomplexity does not aim to replace any of the specialist
+toolboxes introduced in §1. MR.Estimator [@spitzner2021mrestimator]
+remains the reference implementation of the multi-step regression
+branching-ratio estimator and should be the first stop for any user
+whose study centres on that single estimator. IDTxl
+[@wollstadt2019idtxl] remains the reference for advanced
+multivariate transfer entropy and the BROJA partial information
+decomposition with hierarchical surrogate testing. JIDT
+[@lizier2014jidt] remains the canonical Java toolkit for
+high-dimensional information-theoretic measures. MVGC
+[@barnett2014mvgc] remains the reference for advanced Granger-
+causality work in MATLAB. Elephant [@denker2018elephant] remains
+the leading spike-train statistics library on the Neo data model.
+SpikeInterface [@buccino2020spikeinterface] is the de facto
+framework for sorting and curation. Where a study requires the
+most advanced features of any single one of these tools, users
+should reach for the corresponding specialist package.
+
+neurocomplexity is positioned as a complementary integration layer
+when a study needs several of these families together on the same
+spike-sorted recording: it offers one data model, one inference
+layer, one validation matrix, and one citable release, so that the
+quantitative claims of such a paper are backed by a publicly
+verifiable benchmark and so that the bin definitions, surrogate
+generators, and bootstrap construction are shared rather than
+re-implemented per estimator.
 
 ### Limitations
 
@@ -503,9 +569,8 @@ with its own simulator; a dedicated case is planned for v1.2.
 None of these are fundamental design problems; each will be
 addressed in future releases without breaking the public API.
 
-The package is open to community contribution under the MIT licence;
-issues, pull requests, and benchmark proposals are welcomed at the
-repository.
+The package is open to community contribution; issues, pull requests,
+and benchmark proposals are welcomed at the repository.
 
 ---
 
