@@ -7,6 +7,11 @@ build/
 dist/
 .eggs/
 
+# Local agent / editor state
+.claude/
+.cursor/
+.aider*
+
 # Virtual envs
 .venv/
 venv/
