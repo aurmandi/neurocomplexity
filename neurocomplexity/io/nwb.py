@@ -16,7 +16,6 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import pynwb
 
 from neurocomplexity.core.exceptions import NWBSchemaError
 from neurocomplexity.core.provenance import ProvenanceRecord
@@ -26,6 +25,13 @@ log = logging.getLogger(__name__)
 
 
 def from_nwb(path: str | Path) -> SpikeRecording:
+    try:
+        import pynwb  # noqa: F401  (heavy optional dep)
+    except ImportError as exc:
+        raise ImportError(
+            "from_nwb requires pynwb. Install with: pip install 'neurocomplexity[nwb]'"
+        ) from exc
+
     path = Path(path)
     if not path.exists():
         raise FileNotFoundError(path)

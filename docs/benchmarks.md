@@ -22,6 +22,20 @@ All eleven cases pass against the v1.0.0 baseline at `n_reps=5`.
 | `pid.atoms_unq` | Unique₁ = ln 2, others 0 | mean abs err < 0.10 nats | Williams & Beer 2010 |
 | `dimensionality.pr_rank` | PR ≈ effective rank for r ∈ {2, 5, 10} | mean abs err < 1.0 | Rajan et al. 2010; Cunningham & Yu 2014 |
 
+### Coverage matrix
+
+Every analysis module is validated by at least one case above:
+
+| Analysis module | Validated by |
+|---|---|
+| `analysis.branching` (`wilting_mr`) | `criticality.m_hat` |
+| `analysis.criticality` (`fit_alpha`, `criticality`) | `criticality.exponents` |
+| `analysis.shape_collapse` | shares the `fit_alpha` exponents with `criticality.exponents`; a dedicated shape-collapse simulator case is planned for v1.1 |
+| `analysis.transfer_entropy` | `info_theory.te_convergence`, `info_theory.te_null` |
+| `analysis.autonomy` | `info_theory.autonomy_calibration` |
+| `analysis.pid` | `pid.atoms_{xor,and,copy,rdn,unq}` |
+| `analysis.dimensionality` | `dimensionality.pr_rank` |
+
 ### Design notes
 
 Three benchmarks deserve a note on what the validation actually tests:

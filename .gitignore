@@ -30,7 +30,6 @@ htmlcov/
 # Project-specific
 results/
 sim_output/
-tests/
 
 # Sphinx
 docs/_build/
