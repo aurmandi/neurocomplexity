@@ -8,20 +8,36 @@ walk-through see the [tutorial notebook](examples/tutorial.ipynb).
 ```python
 import neurocomplexity as nc
 rec = nc.io.from_nwb("path/to/session.nwb")
-print(rec.unit_ids.size, "spikes")
+print(f"{rec.n_spikes} spikes from {rec.n_units} units")
 ```
+
+NWB support requires the optional `nwb` extra (`pip install
+"neurocomplexity[nwb]"`).
 
 ### From a Phy curation directory
 
 ```python
-rec = nc.io.from_phy("path/to/phy_output/", quality=("good",))
+rec = nc.io.from_phy("path/to/phy_output/")
+rec = rec.filter_units(quality=["good"])
 ```
 
 ### From raw Kilosort output (before Phy curation)
 
 ```python
 rec = nc.io.from_kilosort("path/to/kilosort_output/")
+rec = rec.filter_units(quality=["good"])
 ```
+
+### From any SpikeInterface sorter
+
+```python
+import spikeinterface.extractors as se
+sorting = se.read_phy("path/to/phy_output/")
+rec = nc.io.from_spikeinterface(sorting)
+```
+
+The SpikeInterface bridge is a soft dependency — install with
+`pip install "neurocomplexity[spikeinterface]"`.
 
 ## Run an analysis
 

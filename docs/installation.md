@@ -26,6 +26,17 @@ pip install -e ".[dev,docs]"
 
 ## Optional dependencies
 
-- `pynwb` is a runtime dependency; the NWB loader is the primary entry point.
-- The Phy and Kilosort loaders require no additional pip packages beyond
-  numpy / pandas.
+NWB support is opt-in to keep the core install lightweight (no `pynwb` /
+`h5py` / `hdmf` unless you ask for them):
+
+```bash
+pip install "neurocomplexity[nwb]"              # adds pynwb + h5py
+pip install "neurocomplexity[spikeinterface]"   # adds spikeinterface
+pip install "neurocomplexity[viz]"              # adds matplotlib (and plotly/dash)
+pip install "neurocomplexity[dev]"              # pytest, ruff, coverage
+pip install "neurocomplexity[nwb,spikeinterface,viz,dev]"   # everything
+```
+
+Calling `nc.io.from_nwb(...)` or `nc.io.from_spikeinterface(...)` without
+the matching extra raises a clear `ImportError` pointing at the right
+install command.

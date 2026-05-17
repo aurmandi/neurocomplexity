@@ -1,5 +1,20 @@
 # Changelog
 
+## v1.1.0 — 2026-05-17
+
+### Added
+- `nc.io.from_phy(directory)` — load a Phy curation directory.
+- `nc.io.from_kilosort(directory)` — load raw Kilosort output.
+- `nc.io.from_spikeinterface(sorting, recording=None)` — bridge to any
+  `spikeinterface.BaseSorting`.
+- `[spikeinterface]` optional install extra.
+- New `docs/io.md` loader reference page.
+
+### Changed
+- `neurocomplexity.io.__init__` now lazy-imports every heavy loader via
+  `__getattr__`; importing the top-level package no longer touches
+  pynwb or spikeinterface.
+
 ## v1.0.0 — 2026-05-16
 
 Initial public release of `neurocomplexity`.
