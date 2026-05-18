@@ -39,6 +39,10 @@ sim_output/
 # Manuscript draft kept local-only until submission
 paper/
 
+# Design specs and implementation plans kept local-only
+docs/specs/
+docs/plans/
+
 # Sphinx
 docs/_build/
 docs/.jupyter_cache/
