@@ -145,3 +145,8 @@ def test_add_quality_si_auto_detect(tmp_path):
     qc_path = _write_si_csv(tmp_path / "si.csv", [0, 1, 2])
     rec2 = add_quality(rec, qc_path)
     assert (rec2.units["qc_source"] == "spikeinterface").all()
+
+
+def test_add_quality_accessible_via_nc_io():
+    import neurocomplexity.io as nio
+    assert callable(nio.add_quality)

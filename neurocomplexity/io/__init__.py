@@ -7,6 +7,7 @@ import eagerly.
 from __future__ import annotations
 
 from neurocomplexity.io.dict_loader import from_dict
+from neurocomplexity.io._qc import add_quality
 
 __all__ = [
     "from_dict",
@@ -14,6 +15,9 @@ __all__ = [
     "from_phy",
     "from_kilosort",
     "from_spikeinterface",
+    "add_quality",
+    "add_anatomy",
+    "add_trials",
 ]
 
 
@@ -29,5 +33,11 @@ def __getattr__(name):
         return _f
     if name == "from_spikeinterface":
         from neurocomplexity.io.spikeinterface import from_spikeinterface as _f
+        return _f
+    if name == "add_anatomy":
+        from neurocomplexity.io._anatomy import add_anatomy as _f
+        return _f
+    if name == "add_trials":
+        from neurocomplexity.io._trials import add_trials as _f
         return _f
     raise AttributeError(f"module 'neurocomplexity.io' has no attribute {name!r}")
