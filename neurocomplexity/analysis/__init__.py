@@ -8,7 +8,7 @@ from neurocomplexity.analysis.dimensionality import (
     dimensionality,
     DimensionalityResult,
 )
-from neurocomplexity.analysis.branching import wilting_mr, BranchingResult
+from neurocomplexity.analysis.branching import wilting_mr, branching_ratio, BranchingResult
 from neurocomplexity.analysis.shape_collapse import (
     shape_collapse,
     ShapeCollapseResult,
@@ -25,7 +25,7 @@ __all__ = [
     "transfer_entropy", "TransferEntropyResult",
     "autonomy", "AutonomyResult",
     "dimensionality", "DimensionalityResult",
-    "wilting_mr", "BranchingResult",
+    "wilting_mr", "branching_ratio", "BranchingResult",
     "shape_collapse", "ShapeCollapseResult",
     "partial_information", "PIDResult",
     "make_surrogate", "jitter_recording", "shuffle_isis",
