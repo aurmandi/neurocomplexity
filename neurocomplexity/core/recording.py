@@ -259,6 +259,20 @@ class SpikeRecording:
         return replace(self, spike_times=new_st, unit_ids=new_uid,
                        duration=cumulative, intervals={})
 
+    @classmethod
+    def merge_probes(
+        cls,
+        recordings,  # Mapping[str, SpikeRecording]
+        *,
+        align_durations: str = "max",
+    ) -> "SpikeRecording":
+        """Merge per-probe recordings into a single SpikeRecording.
+
+        See :func:`neurocomplexity.io._merge.merge_probes_impl` for details.
+        """
+        from neurocomplexity.io._merge import merge_probes_impl
+        return merge_probes_impl(recordings, align_durations=align_durations)
+
     def classify_cell_type(self, method: str = "waveform_duration",
                             *, threshold_ms: float = 0.4,
                             column: str | None = None) -> "SpikeRecording":
