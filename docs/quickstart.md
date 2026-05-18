@@ -23,9 +23,15 @@ rec = rec.filter_units(quality=["good"])
 
 ### From raw Kilosort output (before Phy curation)
 
+Raw Kilosort output has no curator-assigned quality, so attach an automated QC
+table (Bombcell / ecephys_spike_sorting / SpikeInterface) and filter on it.
+Without this step `neurocomplexity` emits a `QualityControlWarning` at analysis
+time because uncurated sorter output is dominated by noise units and MUA.
+
 ```python
 rec = nc.io.from_kilosort("path/to/kilosort_output/")
-rec = rec.filter_units(quality=["good"])
+rec = nc.io.add_quality(rec, "path/to/bombcell/cluster_metrics.csv")
+rec = rec.filter_units(quality="good")
 ```
 
 ### From any SpikeInterface sorter
