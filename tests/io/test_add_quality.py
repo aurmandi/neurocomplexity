@@ -117,3 +117,31 @@ def test_add_quality_auto_detects_ecephys(tmp_path):
     qc_path = _write_ecephys_csv(tmp_path / "metrics.csv", [0, 1, 2])
     rec2 = add_quality(rec, qc_path)
     assert (rec2.units["qc_source"] == "ecephys").all()
+
+
+def _write_si_csv(path, ids):
+    df = pd.DataFrame({
+        "unit_id": ids,
+        "isi_violations_ratio": [0.001, 0.05, 0.6][:len(ids)],
+        "amplitude_cutoff": [0.02, 0.08, 0.2][:len(ids)],
+        "presence_ratio": [0.95, 0.8, 0.4][:len(ids)],
+        "firing_rate": [5.0, 2.0, 0.05][:len(ids)],
+        "snr": [10.0, 3.5, 1.5][:len(ids)],
+    })
+    df.to_csv(path, index=False)
+    return path
+
+
+def test_add_quality_spikeinterface(tmp_path):
+    rec = _rec_with_ids([0, 1, 2])
+    qc_path = _write_si_csv(tmp_path / "si.csv", [0, 1, 2])
+    rec2 = add_quality(rec, qc_path, format="spikeinterface")
+    assert (rec2.units["qc_source"] == "spikeinterface").all()
+    assert list(rec2.units["quality"]) == ["good", "mua", "noise"]
+
+
+def test_add_quality_si_auto_detect(tmp_path):
+    rec = _rec_with_ids([0, 1, 2])
+    qc_path = _write_si_csv(tmp_path / "si.csv", [0, 1, 2])
+    rec2 = add_quality(rec, qc_path)
+    assert (rec2.units["qc_source"] == "spikeinterface").all()
