@@ -1,14 +1,11 @@
-"""Avalanche size & lifetime distributions with power-law fits.
-
-Two-panel figure: log-binned P(s) and P(t) on log-log axes with the fitted
-exponents (alpha_s, alpha_t) overlaid as dashed reference lines.
-"""
+"""Avalanche size & lifetime distributions with power-law fits."""
 from __future__ import annotations
 
 import numpy as np
 import matplotlib.pyplot as plt
 
-from neurocomplexity.viz._style import PALETTE, panel_label
+from neurocomplexity.viz._palettes import get_palette, DEFAULT_PALETTE
+from neurocomplexity.viz._style import _apply_panel_label
 
 
 def _log_pdf(values, nbins=30):
@@ -25,55 +22,58 @@ def _log_pdf(values, nbins=30):
     return centers[mask], pdf[mask]
 
 
-def figure_criticality(result, *, fig=None):
-    """Render P(s), P(t) with fitted power laws.
-
-    Parameters
-    ----------
-    result : CriticalityResult
-    fig    : optional pre-existing Figure (for composite layouts)
-    """
-    if fig is None:
-        fig, axes = plt.subplots(1, 2, figsize=(4.4, 2.1))
+def figure_criticality(
+    result,
+    *,
+    palette: str = DEFAULT_PALETTE,
+    panel_label: str | None = None,
+    figsize: tuple[float, float] | None = None,
+    ax=None,
+):
+    """Render P(s), P(T) with fitted power laws."""
+    p = get_palette(palette)
+    if ax is None:
+        size = figsize if figsize is not None else (4.4, 2.1)
+        fig, axes = plt.subplots(1, 2, figsize=size)
     else:
-        axes = fig.subplots(1, 2)
+        fig = ax.figure
+        ax.set_axis_off()
+        gs = ax.get_subplotspec().subgridspec(1, 2)
+        axes = [fig.add_subplot(gs[0]), fig.add_subplot(gs[1])]
     ax_s, ax_t = axes
 
-    # Sizes
     xs, ps = _log_pdf(result.sizes)
-    ax_s.loglog(xs, ps, "o", ms=3, color=PALETTE["signal"],
-                mec="none", alpha=0.85, label="data")
+    ax_s.loglog(xs, ps, "o", ms=3, color=p["signal"], mec="none", alpha=0.85,
+                label="data")
     if xs.size:
-        # Anchor reference line to the first decade
-        x0 = xs[0]; y0 = ps[0]
+        x0, y0 = xs[0], ps[0]
         xx = np.array([xs.min(), xs.max()])
         yy = y0 * (xx / x0) ** (-result.alpha_s)
-        ax_s.loglog(xx, yy, "--", lw=0.9, color=PALETTE["accent"],
+        ax_s.loglog(xx, yy, "--", lw=0.9, color=p["accent"],
                     label=fr"$\alpha_s={result.alpha_s:.2f}$")
     ax_s.set_xlabel("Avalanche size $s$")
     ax_s.set_ylabel("$P(s)$")
     ax_s.legend(loc="lower left")
 
-    # Lifetimes
     xt, pt = _log_pdf(result.lifetimes)
-    ax_t.loglog(xt, pt, "o", ms=3, color=PALETTE["ok"],
-                mec="none", alpha=0.85, label="data")
+    ax_t.loglog(xt, pt, "o", ms=3, color=p["signal"], mec="none", alpha=0.85,
+                label="data")
     if xt.size:
-        x0 = xt[0]; y0 = pt[0]
+        x0, y0 = xt[0], pt[0]
         xx = np.array([xt.min(), xt.max()])
         yy = y0 * (xx / x0) ** (-result.alpha_t)
-        ax_t.loglog(xx, yy, "--", lw=0.9, color=PALETTE["accent"],
+        ax_t.loglog(xx, yy, "--", lw=0.9, color=p["accent"],
                     label=fr"$\alpha_t={result.alpha_t:.2f}$")
     ax_t.set_xlabel("Lifetime $T$ (s)")
     ax_t.set_ylabel("$P(T)$")
     ax_t.legend(loc="lower left")
 
-    # Annotate R^2 in top-right corner of the size panel (compactness > captions)
-    ax_s.text(0.98, 0.97, f"$R^2={result.r_squared:.2f}$\nbin={result.optimal_bin_seconds*1e3:.1f} ms",
-              transform=ax_s.transAxes, ha="right", va="top", fontsize=6,
-              color=PALETTE["muted"])
+    ax_s.text(0.98, 0.97,
+              f"$R^2={result.r_squared:.2f}$\n"
+              f"bin={result.optimal_bin_seconds * 1e3:.1f} ms",
+              transform=ax_s.transAxes, ha="right", va="top",
+              fontsize=6, color=p["muted"])
 
-    panel_label(ax_s, "a")
-    panel_label(ax_t, "b")
+    _apply_panel_label(ax_s, panel_label)
     fig.tight_layout()
     return fig

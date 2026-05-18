@@ -108,3 +108,21 @@ def save_publication(fig, path, *, formats: Iterable[str] = ("pdf", "svg", "png"
         fig.savefig(p, dpi=dpi)
         out.append(p)
     return out
+
+
+def _resolve_palette_and_axes(*, palette, ax, figsize, default_size):
+    """Common entry-point boilerplate shared by every figure_X function."""
+    import matplotlib.pyplot as plt
+    p = get_palette(palette)
+    if ax is None:
+        size = figsize if figsize is not None else default_size
+        fig, ax = plt.subplots(figsize=size)
+    else:
+        fig = ax.figure
+    return p, fig, ax
+
+
+def _apply_panel_label(ax, label):
+    if label is None:
+        return
+    panel_label(ax, label)

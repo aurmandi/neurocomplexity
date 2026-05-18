@@ -1,25 +1,31 @@
-"""PID atom bar chart: redundancy / unique_1 / unique_2 / synergy."""
+"""PID atoms: stacked bar in canonical order R / U_X / U_Y / S."""
 from __future__ import annotations
 
 import numpy as np
-import matplotlib.pyplot as plt
 
-from neurocomplexity.viz._style import PALETTE, panel_label
+from neurocomplexity.viz._palettes import get_palette, DEFAULT_PALETTE
+from neurocomplexity.viz._style import _resolve_palette_and_axes, _apply_panel_label
 
 
-def figure_pid(result, *, fig=None):
-    if fig is None:
-        fig, ax = plt.subplots(figsize=(3.0, 2.2))
-    else:
-        ax = fig.subplots(1, 1)
+def figure_pid(
+    result,
+    *,
+    palette: str = DEFAULT_PALETTE,
+    panel_label: str | None = None,
+    figsize: tuple[float, float] | None = None,
+    ax=None,
+):
+    p, fig, ax = _resolve_palette_and_axes(
+        palette=palette, ax=ax, figsize=figsize, default_size=(3.0, 2.2),
+    )
+
     s1, s2 = result.sources
     labels = ["Redundancy", f"Unique\n({s1})", f"Unique\n({s2})", "Synergy"]
     vals = np.array([result.redundancy, result.unique_1,
                      result.unique_2, result.synergy])
-    colors = [PALETTE["muted"], PALETTE["signal"],
-              PALETTE["ok"], PALETTE["accent"]]
+    bar_colors = [p["muted"], p["signal"], p["accent"], p["categorical"][-1]]
     x = np.arange(len(vals))
-    ax.bar(x, vals, color=colors, edgecolor="none", width=0.7)
+    ax.bar(x, vals, color=bar_colors, edgecolor="none", width=0.7)
     ax.set_xticks(x)
     ax.set_xticklabels(labels, fontsize=6)
     ax.set_ylabel(f"Information about {result.target} (nats)")
@@ -28,11 +34,12 @@ def figure_pid(result, *, fig=None):
     for xi, v in zip(x, vals):
         ax.text(xi, v + ymax * 0.03, f"{v:.4f}",
                 ha="center", va="bottom", fontsize=5.5,
-                color=PALETTE["neutral"])
+                color=p["text"])
     ax.text(0.98, 0.97,
-            f"total MI = {result.total_mi:.4f}\nbin = {result.bin_size_seconds*1e3:.1f} ms",
-            transform=ax.transAxes, ha="right", va="top", fontsize=6,
-            color=PALETTE["muted"])
-    panel_label(ax, "a", x=-0.22)
+            f"total MI = {result.total_mi:.4f}\n"
+            f"bin = {result.bin_size_seconds * 1e3:.1f} ms",
+            transform=ax.transAxes, ha="right", va="top",
+            fontsize=6, color=p["muted"])
+    _apply_panel_label(ax, panel_label)
     fig.tight_layout()
     return fig

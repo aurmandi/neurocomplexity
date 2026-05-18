@@ -1,17 +1,30 @@
-"""Dimensionality figure: eigenvalue scree + participation ratio annotation."""
+"""Dimensionality: eigenvalue scree + cumulative variance with PR annotation."""
 from __future__ import annotations
 
 import numpy as np
 import matplotlib.pyplot as plt
 
-from neurocomplexity.viz._style import PALETTE, panel_label
+from neurocomplexity.viz._palettes import get_palette, DEFAULT_PALETTE
+from neurocomplexity.viz._style import _apply_panel_label
 
 
-def figure_dimensionality(result, *, fig=None):
-    if fig is None:
-        fig, axes = plt.subplots(1, 2, figsize=(4.4, 2.1))
+def figure_dimensionality(
+    result,
+    *,
+    palette: str = DEFAULT_PALETTE,
+    panel_label: str | None = None,
+    figsize: tuple[float, float] | None = None,
+    ax=None,
+):
+    p = get_palette(palette)
+    if ax is None:
+        size = figsize if figsize is not None else (4.4, 2.1)
+        fig, axes = plt.subplots(1, 2, figsize=size)
     else:
-        axes = fig.subplots(1, 2)
+        fig = ax.figure
+        ax.set_axis_off()
+        gs = ax.get_subplotspec().subgridspec(1, 2)
+        axes = [fig.add_subplot(gs[0]), fig.add_subplot(gs[1])]
     ax_scree, ax_cum = axes
 
     eig = np.asarray(result.eigenvalues, dtype=float)
@@ -20,26 +33,26 @@ def figure_dimensionality(result, *, fig=None):
     idx = np.arange(1, eig.size + 1)
 
     ax_scree.semilogy(idx, eig, "o-", ms=2.5, lw=0.8,
-                      color=PALETTE["signal"], mec="none")
+                      color=p["signal"], mec="none")
     ax_scree.set_xlabel("Component index")
     ax_scree.set_ylabel("Eigenvalue")
 
     cum = np.cumsum(eig) / eig.sum()
-    ax_cum.plot(idx, cum, "-", lw=1.0, color=PALETTE["signal"])
-    ax_cum.axhline(0.9, ls="--", lw=0.6, color=PALETTE["muted"])
+    ax_cum.plot(idx, cum, "-", lw=1.0, color=p["signal"])
+    ax_cum.axhline(0.9, ls="--", lw=0.6, color=p["muted"])
     pr = result.participation_ratio
-    ax_cum.axvline(pr, ls="--", lw=0.8, color=PALETTE["accent"],
+    ax_cum.axvline(pr, ls="--", lw=0.8, color=p["accent"],
                    label=f"PR={pr:.1f}")
     ax_cum.set_xlabel("Component index")
     ax_cum.set_ylabel("Cumulative variance")
     ax_cum.set_ylim(0, 1.02)
     ax_cum.legend(loc="lower right")
     ax_cum.text(0.02, 0.97,
-                f"N units = {result.n_units}\nPR/N = {pr/result.n_units:.2f}",
+                f"N units = {result.n_units}\n"
+                f"PR/N = {pr / result.n_units:.2f}",
                 transform=ax_cum.transAxes, va="top", fontsize=6,
-                color=PALETTE["muted"])
+                color=p["muted"])
 
-    panel_label(ax_scree, "a")
-    panel_label(ax_cum, "b")
+    _apply_panel_label(ax_scree, panel_label)
     fig.tight_layout()
     return fig
