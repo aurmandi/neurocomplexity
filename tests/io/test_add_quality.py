@@ -85,3 +85,35 @@ def test_add_quality_does_not_set_filtered_flag(tmp_path):
     qc_path = _write_bombcell_csv(tmp_path / "bc.csv", [0, 1, 2])
     rec2 = add_quality(rec, qc_path, format="bombcell")
     assert rec2._filtered is False
+
+
+def _write_ecephys_csv(path, ids):
+    df = pd.DataFrame({
+        "cluster_id": ids,
+        "isi_viol": [0.001, 0.05, 0.6][:len(ids)],
+        "amplitude_cutoff": [0.02, 0.08, 0.2][:len(ids)],
+        "presence_ratio": [0.95, 0.8, 0.4][:len(ids)],
+        "firing_rate": [5.0, 2.0, 0.05][:len(ids)],
+        "snr": [10.0, 3.5, 1.5][:len(ids)],
+    })
+    df.to_csv(path, index=False)
+    return path
+
+
+def test_add_quality_ecephys_normalises_and_infers_quality(tmp_path):
+    rec = _rec_with_ids([0, 1, 2])
+    qc_path = _write_ecephys_csv(tmp_path / "metrics.csv", [0, 1, 2])
+    rec2 = add_quality(rec, qc_path, format="ecephys")
+    # Inferred categorical quality:
+    # good = isi_viol < 0.5 AND amplitude_cutoff < 0.1 AND presence_ratio > 0.9
+    # noise = firing_rate < 0.1
+    # else mua
+    assert list(rec2.units["quality"]) == ["good", "mua", "noise"]
+    assert (rec2.units["qc_source"] == "ecephys").all()
+
+
+def test_add_quality_auto_detects_ecephys(tmp_path):
+    rec = _rec_with_ids([0, 1, 2])
+    qc_path = _write_ecephys_csv(tmp_path / "metrics.csv", [0, 1, 2])
+    rec2 = add_quality(rec, qc_path)
+    assert (rec2.units["qc_source"] == "ecephys").all()

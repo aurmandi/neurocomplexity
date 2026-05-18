@@ -108,9 +108,41 @@ def add_quality(
     return replace(rec, units=merged, attachments=rec.attachments + (attachment,))
 
 
-# Stubs that raise NotImplementedError until Tasks 6 & 7 fill them in.
+# Thresholds from Allen ecephys_spike_sorting defaults; see docs/references/qc_thresholds.md
+_ECEPHYS_THRESHOLDS = {
+    "isi_viol_max": 0.5,
+    "amplitude_cutoff_max": 0.1,
+    "presence_ratio_min": 0.9,
+    "firing_rate_min": 0.1,
+}
+
+
+def _infer_quality_ecephys(row: pd.Series) -> str:
+    fr = row.get("firing_rate", np.nan)
+    if pd.notna(fr) and fr < _ECEPHYS_THRESHOLDS["firing_rate_min"]:
+        return "noise"
+    isi = row.get("isi_viol", np.nan)
+    ac = row.get("amplitude_cutoff", np.nan)
+    pr = row.get("presence_ratio", np.nan)
+    is_good = (
+        pd.notna(isi) and isi < _ECEPHYS_THRESHOLDS["isi_viol_max"]
+        and pd.notna(ac) and ac < _ECEPHYS_THRESHOLDS["amplitude_cutoff_max"]
+        and pd.notna(pr) and pr > _ECEPHYS_THRESHOLDS["presence_ratio_min"]
+    )
+    return "good" if is_good else "mua"
+
+
 def _normalise_ecephys(df: pd.DataFrame) -> pd.DataFrame:
-    raise NotImplementedError("ecephys QC normalisation pending Task 6")
+    out = pd.DataFrame({"id": df["cluster_id"].to_numpy(dtype=np.int64)})
+    out["quality"] = df.apply(_infer_quality_ecephys, axis=1).astype("string")
+    out["presence_ratio"] = df.get("presence_ratio", pd.Series([np.nan] * len(df))).astype(float)
+    out["isi_violations_ratio"] = df.get("isi_viol", pd.Series([np.nan] * len(df))).astype(float)
+    out["refractory_period_violations_ratio"] = out["isi_violations_ratio"]
+    out["amplitude_cutoff"] = df.get("amplitude_cutoff", pd.Series([np.nan] * len(df))).astype(float)
+    out["signal_to_noise"] = df.get("snr", pd.Series([np.nan] * len(df))).astype(float)
+    out["firing_rate"] = df.get("firing_rate", pd.Series([np.nan] * len(df))).astype(float)
+    out["qc_source"] = "ecephys"
+    return out
 
 
 def _normalise_spikeinterface(df: pd.DataFrame) -> pd.DataFrame:
