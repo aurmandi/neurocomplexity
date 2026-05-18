@@ -137,3 +137,9 @@ def test_filtered_recording_does_not_warn_in_analysis():
             pass
     qcw = [w for w in caught if issubclass(w.category, QualityControlWarning)]
     assert len(qcw) == 0
+
+
+def test_warnings_submodule_accessible_as_nc_warnings():
+    import neurocomplexity as nc
+    assert hasattr(nc, "warnings")
+    assert nc.warnings.QualityControlWarning is QualityControlWarning
