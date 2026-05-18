@@ -36,6 +36,12 @@ class SpikeRecording:
     # stimulus presentation tables from an NWB file). Each value is a
     # DataFrame with at least ``start_time`` and ``stop_time`` columns.
     intervals: Mapping[str, pd.DataFrame] = field(default_factory=dict)
+    # Provenance records for any quality/anatomy/trials attachments added via
+    # add_quality / add_anatomy / add_trials helpers (future tasks).
+    attachments: tuple[ProvenanceRecord, ...] = field(default_factory=tuple)
+    # Set to True by filter_units so downstream analysis entry points can
+    # emit a QualityControlWarning when operating on an already-filtered rec.
+    _filtered: bool = False
 
     def __post_init__(self) -> None:
         st = np.asarray(self.spike_times, dtype=np.float64)
@@ -122,7 +128,8 @@ class SpikeRecording:
             new_pops[name] = mask[keep_pos]
 
         return replace(self, spike_times=new_st, unit_ids=new_uid,
-                       units=new_units, populations=new_pops)
+                       units=new_units, populations=new_pops,
+                       _filtered=True)
 
     def with_populations(self, definition=None, *, by: str | None = None,
                          on_unassigned: str = "error") -> "SpikeRecording":
