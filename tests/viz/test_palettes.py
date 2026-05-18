@@ -60,3 +60,28 @@ def test_lighten_pushes_to_higher_lightness():
     orig = sum(_hex_to_rgb("#723D46")) / 3
     new = sum(_hex_to_rgb(out)) / 3
     assert new > orig
+
+
+def test_apply_style_sets_text_color_from_palette():
+    import matplotlib as mpl
+    from neurocomplexity.viz._style import apply_style
+    apply_style(palette="wine")
+    assert mpl.rcParams["text.color"] == "#60566B"
+    assert mpl.rcParams["axes.edgecolor"] == "#60566B"
+    apply_style(palette="forest")
+    assert mpl.rcParams["text.color"] == "#51513D"
+
+
+def test_set_palette_changes_current():
+    from neurocomplexity.viz._style import set_palette, current_palette
+    set_palette("sage")
+    assert current_palette()["signal"] == "#723D46"
+    set_palette("forest")
+
+
+def test_apply_style_no_pdf_fonttype_42():
+    import matplotlib as mpl
+    from neurocomplexity.viz._style import apply_style
+    apply_style()
+    assert mpl.rcParams["pdf.fonttype"] == 42
+    assert mpl.rcParams["svg.fonttype"] == "none"

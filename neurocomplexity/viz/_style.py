@@ -1,7 +1,9 @@
-"""Nature-style matplotlib defaults & save helpers.
+"""Publication-quality matplotlib rcParams + palette switching.
 
-Typography: Arial 7 pt body, 8 pt panel titles. Lines 0.8 pt, ticks inward.
-Top/right spines off. SVG text editable, PDF uses TrueType (fonttype 42).
+Provides ``apply_style(palette)``, ``set_palette(name)``, ``current_palette()``,
+and re-exports ``PALETTES``. Calling ``apply_style`` propagates the palette's
+``text`` colour to every axis-chrome rcParam so the palette extends to
+spines and tick labels, not just data colours.
 """
 from __future__ import annotations
 
@@ -11,23 +13,24 @@ from typing import Iterable
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 
-
-# Restrained palette: one neutral, one signal, one accent + 4 categorical extras.
-PALETTE = {
-    "neutral":   "#2b2b2b",
-    "muted":     "#7f7f7f",
-    "signal":    "#1f6feb",  # blue
-    "accent":    "#d6604d",  # warm red
-    "ok":        "#2ca25f",  # green (gain/critical region)
-    "warn":      "#e6a700",  # amber
-    "fill":      "#cfe1f7",  # signal fill
-    "categorical": ["#1f6feb", "#d6604d", "#2ca25f", "#e6a700",
-                    "#7f3eb8", "#0fb5ae", "#b8336a"],
-}
+from neurocomplexity.viz._palettes import (
+    PALETTES, DEFAULT_PALETTE, get_palette,
+)
 
 
-def apply_style() -> None:
-    """Set the global rcParams to Nature-style defaults."""
+_CURRENT = {"name": DEFAULT_PALETTE}
+
+
+def current_palette() -> dict:
+    """Return the palette dict in current use."""
+    return get_palette(_CURRENT["name"])
+
+
+def apply_style(palette: str = DEFAULT_PALETTE) -> None:
+    """Set matplotlib rcParams to publication defaults using ``palette``."""
+    p = get_palette(palette)
+    _CURRENT["name"] = palette
+    text = p["text"]
     mpl.rcParams.update({
         "font.family": "sans-serif",
         "font.sans-serif": ["Arial", "Helvetica", "DejaVu Sans", "sans-serif"],
@@ -43,19 +46,55 @@ def apply_style() -> None:
         "ps.fonttype": 42,
         "axes.spines.right": False,
         "axes.spines.top": False,
-        "axes.linewidth": 0.8,
-        "xtick.major.width": 0.8,
-        "ytick.major.width": 0.8,
+        "axes.linewidth": 0.6,
+        "xtick.major.width": 0.6,
+        "ytick.major.width": 0.6,
         "xtick.direction": "out",
         "ytick.direction": "out",
-        "lines.linewidth": 1.2,
+        "lines.linewidth": 1.0,
         "lines.markersize": 3.5,
         "legend.frameon": False,
         "figure.dpi": 120,
         "savefig.dpi": 600,
         "savefig.bbox": "tight",
         "savefig.pad_inches": 0.02,
+        "text.color": text,
+        "axes.labelcolor": text,
+        "axes.edgecolor": text,
+        "xtick.color": text,
+        "ytick.color": text,
     })
+
+
+def set_palette(name: str) -> None:
+    """Switch the active palette and re-apply rcParams."""
+    apply_style(palette=name)
+
+
+class _LegacyPaletteAccessor(dict):
+    """Backward-compat shim: maps legacy flat-dict keys to new palette roles."""
+    def __getitem__(self, key):
+        p = current_palette()
+        if key in p:
+            return p[key]
+        mapping = {"ok": p["accent"], "warn": p["accent"], "neutral": p["text"]}
+        if key in mapping:
+            return mapping[key]
+        raise KeyError(key)
+
+
+PALETTE = _LegacyPaletteAccessor()
+
+
+apply_style(palette=DEFAULT_PALETTE)
+
+
+def panel_label(ax, letter: str, *, x: float = -0.07, y: float = 1.02) -> None:
+    """Add a bold panel letter (a, b, c, ...) to the upper-left of an axes."""
+    ax.text(x, y, letter, transform=ax.transAxes,
+            fontsize=9, fontweight="bold",
+            ha="right", va="bottom",
+            color=current_palette()["text"])
 
 
 def save_publication(fig, path, *, formats: Iterable[str] = ("pdf", "svg", "png"),
@@ -69,9 +108,3 @@ def save_publication(fig, path, *, formats: Iterable[str] = ("pdf", "svg", "png"
         fig.savefig(p, dpi=dpi)
         out.append(p)
     return out
-
-
-def panel_label(ax, text: str, *, x: float = -0.18, y: float = 1.08) -> None:
-    """Add bold panel label (a, b, c, ...) at the canonical top-left position."""
-    ax.text(x, y, text, transform=ax.transAxes,
-            fontsize=9, fontweight="bold", va="top", ha="left")
