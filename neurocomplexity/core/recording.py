@@ -268,6 +268,18 @@ class SpikeRecording:
     ) -> "SpikeRecording":
         """Merge per-probe recordings into a single SpikeRecording.
 
+        Each unit's ``id`` is recoded to a fresh sequential int64 in the
+        merged recording (required by the int64 dtype invariant); the source
+        unit-id is preserved in a new ``original_id`` column, as a
+        tuple-string ``"('probe', id)"`` for any ids that collide across
+        probes. The ``probe`` column carries the source-probe label.
+        Per-probe sub-populations are added under names ``probe_<label>`` and
+        ``probe_<label>_<original_population>``.
+
+        ``_filtered`` is True on the merged recording only when every input
+        recording was already filtered; otherwise it is False and the QC
+        warning will fire from downstream analyses.
+
         See :func:`neurocomplexity.io._merge.merge_probes_impl` for details.
         """
         from neurocomplexity.io._merge import merge_probes_impl

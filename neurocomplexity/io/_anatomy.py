@@ -37,6 +37,11 @@ def _normalise_csv(df: pd.DataFrame) -> pd.DataFrame:
     chan_col = colmap.get("channel")
     area_col = colmap.get("area") or colmap.get("brain_area")
     full_col = colmap.get("brain_area_full") or colmap.get("area_full")
+    if chan_col is None or area_col is None:
+        raise ValueError(
+            "generic CSV anatomy file must have 'channel' and 'area' (or "
+            f"'brain_area') columns; got: {list(df.columns)}"
+        )
     out = pd.DataFrame({
         "peak_channel": df[chan_col].to_numpy(dtype=np.int64),
         "brain_area": df[area_col].astype("string"),

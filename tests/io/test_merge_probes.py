@@ -104,3 +104,30 @@ def test_merge_preserves_original_populations_with_prefix():
     merged = SpikeRecording.merge_probes({"A": a, "B": b})
     assert "probe_A_excitatory" in merged.populations
     assert merged.populations["probe_A_excitatory"].sum() == 1
+
+
+def test_merge_propagates_filtered_when_all_inputs_filtered():
+    from dataclasses import replace
+    a = replace(_rec([0]), _filtered=True)
+    b = replace(_rec([10]), _filtered=True)
+    merged = SpikeRecording.merge_probes({"A": a, "B": b})
+    assert merged._filtered is True
+
+
+def test_merge_filtered_false_when_any_input_not_filtered():
+    from dataclasses import replace
+    a = replace(_rec([0]), _filtered=True)
+    b = _rec([10])  # _filtered=False
+    merged = SpikeRecording.merge_probes({"A": a, "B": b})
+    assert merged._filtered is False
+
+
+def test_anatomy_csv_explicit_format_missing_columns_raises_value_error(tmp_path):
+    """Regression: format='csv' with missing channel/area raised KeyError: None."""
+    import pandas as pd
+    from neurocomplexity.io._anatomy import add_anatomy
+    p = tmp_path / "bad.csv"
+    pd.DataFrame({"foo": [1, 2], "bar": [3, 4]}).to_csv(p, index=False)
+    a = _rec([0, 1])
+    with pytest.raises(ValueError, match="channel.*area"):
+        add_anatomy(a, p, format="csv")

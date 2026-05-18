@@ -137,4 +137,5 @@ def merge_probes_impl(
         source=merge_record,
         intervals=merged_intervals,
         attachments=merged_attachments,
+        _filtered=all(r._filtered for r in recordings.values()),
     )
