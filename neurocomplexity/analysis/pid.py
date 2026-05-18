@@ -150,6 +150,8 @@ def partial_information(rec: SpikeRecording,
                   (default 3). Use 2 to recover the legacy binary estimator,
                   but expect zero MI on busy populations.
     """
+    from neurocomplexity._warnings import _warn_if_uncurated
+    _warn_if_uncurated(rec, "partial_information")
     if len(sources) != 2:
         raise ValueError("PID v0 supports exactly 2 sources")
     if n_levels < 2:

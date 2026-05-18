@@ -78,6 +78,8 @@ def autonomy(rec: SpikeRecording,
              max_lag: int = 5,
              ) -> AutonomyResult:
     """Autonomy index per population using every other population as externals."""
+    from neurocomplexity._warnings import _warn_if_uncurated
+    _warn_if_uncurated(rec, "autonomy")
     if populations is None:
         populations = list(rec.populations.keys())
     if len(populations) < 2:

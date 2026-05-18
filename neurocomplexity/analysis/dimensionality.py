@@ -43,6 +43,8 @@ def dimensionality(rec: SpikeRecording,
     Units belonging to the requested populations are pooled. Bin counts are
     z-scored per unit; constant units are dropped (their variance is 0).
     """
+    from neurocomplexity._warnings import _warn_if_uncurated
+    _warn_if_uncurated(rec, "dimensionality")
     if populations is None:
         populations = list(rec.populations.keys())
     bs = float(bin_size_ms) / 1000.0

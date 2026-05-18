@@ -62,6 +62,8 @@ def shape_collapse(rec: SpikeRecording,
                    n_gamma_seed: int = 41,
                    n_interp: int = 50,
                    ) -> ShapeCollapseResult:
+    from neurocomplexity._warnings import _warn_if_uncurated
+    _warn_if_uncurated(rec, "shape_collapse")
     if populations is None:
         populations = list(rec.populations.keys())
     bs = float(bin_size_ms) / 1000.0

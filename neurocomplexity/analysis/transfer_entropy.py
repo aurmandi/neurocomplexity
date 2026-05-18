@@ -75,6 +75,8 @@ def transfer_entropy(rec: SpikeRecording,
                      estimator: str = "binary",
                      ) -> TransferEntropyResult:
     """Pairwise TE matrix across the given populations."""
+    from neurocomplexity._warnings import _warn_if_uncurated
+    _warn_if_uncurated(rec, "transfer_entropy")
     if estimator != "binary":
         raise ValueError(f"only estimator='binary' is implemented in v0.1; got {estimator!r}")
     if populations is None:
