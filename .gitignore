@@ -38,6 +38,7 @@ sim_output/
 
 # Manuscript draft kept local-only until submission
 paper/
+docs/paper/
 
 # Design specs and implementation plans kept local-only
 docs/specs/
