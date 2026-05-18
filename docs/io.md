@@ -46,3 +46,49 @@ Phy writes `params.py` as executable Python. `from_phy` and
 behaviour of Phy itself and SpikeInterface. Treat sorter directories
 the same way you treat any other code you would `python -m` against —
 do not run `from_phy` on directories pulled from untrusted sources.
+
+## Attaching lab artefacts
+
+A `SpikeRecording` loaded with `from_kilosort` carries no curation. Real
+analyses should attach quality, anatomy, and (optionally) behavioural trials
+before running anything statistical.
+
+### Kilosort + Bombcell example
+
+```python
+import neurocomplexity as nc
+
+rec = nc.io.from_kilosort("path/to/kilosort_output/")
+rec = nc.io.add_quality(rec, "path/to/bombcell/cluster_metrics.csv")
+rec = rec.filter_units(quality="good")           # drop MUA + noise
+rec = nc.io.add_anatomy(rec, "path/to/sharptrack_probe.mat")
+rec = nc.io.add_trials(rec, "path/to/trials.csv", name="stim")
+
+# Now safe to analyse
+m = nc.analysis.branching_ratio(rec, bin_size=0.005, k_max=100)
+```
+
+If you skip `add_quality` / `filter_units`, the first analysis call will emit
+a `QualityControlWarning` explaining what to do.
+
+### Phy users
+
+Phy already stores curator-assigned quality alongside the sort. `from_phy`
+loads it directly; no `add_quality` step is needed.
+
+### Multiple probes
+
+Load each probe separately, then merge:
+
+```python
+rec_a = nc.io.from_kilosort("probeA/")
+rec_b = nc.io.from_kilosort("probeB/")
+rec = nc.SpikeRecording.merge_probes({"A": rec_a, "B": rec_b})
+```
+
+`merge_probes` re-codes every unit's `id` to a fresh sequential integer (so the
+merged recording satisfies the int64 dtype invariant) and preserves the source
+ids in a new `original_id` column. The `probe` column carries the source label.
+Per-probe sub-populations (`probe_A`, `probe_B`) are added automatically; if
+unit ids collide across probes, a `UserWarning` is emitted and `original_id`
+records the colliding entries as `('probe', id)` strings.
