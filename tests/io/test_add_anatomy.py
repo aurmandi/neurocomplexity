@@ -78,3 +78,34 @@ def test_add_anatomy_appends_provenance(tmp_path):
     rec2 = add_anatomy(rec, p, format="brainglobe")
     assert len(rec2.attachments) == 1
     assert rec2.attachments[0].source_format == "anatomy:brainglobe"
+
+
+def _write_sharptrack_mat(path, n_channels=4):
+    from scipy.io import savemat
+    probe_ccf = {
+        "channels": np.arange(n_channels, dtype=np.int64) + 1,  # MATLAB 1-indexed
+        "areas": np.array(["CA1", "CA1", "DG", "DG"][:n_channels], dtype=object),
+        "areas_full": np.array(["Field CA1", "Field CA1", "Dentate gyrus", "Dentate gyrus"][:n_channels], dtype=object),
+        "ap_um": np.array([-2000.0, -2000.0, -2100.0, -2100.0][:n_channels]),
+        "dv_um": np.array([-1500.0, -1500.0, -1800.0, -1800.0][:n_channels]),
+        "ml_um": np.array([1000.0, 1000.0, 1100.0, 1100.0][:n_channels]),
+    }
+    savemat(path, {"probe_ccf": probe_ccf})
+    return path
+
+
+def test_add_anatomy_sharptrack_mat(tmp_path):
+    rec = _rec_with_channels([0, 1, 2, 3])
+    p = _write_sharptrack_mat(tmp_path / "anat.mat")
+    rec2 = add_anatomy(rec, p, format="sharptrack")
+    assert list(rec2.units["brain_area"]) == ["CA1", "CA1", "DG", "DG"]
+    assert (rec2.units["anatomy_source"] == "sharptrack").all()
+
+
+def test_add_anatomy_missing_probe_ccf_struct_raises(tmp_path):
+    from scipy.io import savemat
+    p = tmp_path / "wrong.mat"
+    savemat(p, {"not_probe_ccf": np.array([1, 2, 3])})
+    rec = _rec_with_channels([0, 1])
+    with pytest.raises(ValueError, match="probe_ccf"):
+        add_anatomy(rec, p, format="sharptrack")
