@@ -97,7 +97,6 @@ def lmc_complexity(rec: SpikeRecording,
                     kind: str = "both",
                     window_seconds: float = 1.0,
                     step_seconds: float = 0.5,
-                    **_inference_kwargs,
                     ) -> LMCResult:
     """LMC statistical complexity for spike populations.
 
@@ -118,8 +117,7 @@ def lmc_complexity(rec: SpikeRecording,
 
     params = {"populations": list(populations), "bin_size_s": float(bin_size_s),
               "kind": kind, "window_seconds": float(window_seconds),
-              "step_seconds": float(step_seconds),
-              "alternative": "greater"}
+              "step_seconds": float(step_seconds)}
 
     counts = bin_spikes(rec, populations, bin_size_s)  # (T, P) int32
     T, P = counts.shape
