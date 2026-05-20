@@ -38,6 +38,13 @@ def from_nwb(path: str | Path) -> SpikeRecording:
 
     with pynwb.NWBHDF5IO(str(path), "r", load_namespaces=True) as io:
         nwb = io.read()
+        # Fast path: neurocomplexity-authored scratch payload guarantees a
+        # bitwise round-trip. Fall back to the best-effort schema reader if
+        # the payload is absent.
+        from neurocomplexity.io._ndx import read_nc_payload
+        nc_payload = read_nc_payload(nwb)
+        if nc_payload is not None:
+            return nc_payload
         if nwb.units is None or len(nwb.units.id[:]) == 0:
             raise NWBSchemaError(
                 f"{path.name} has no Units table. "
