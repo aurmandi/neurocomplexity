@@ -2,7 +2,10 @@
 
 from neurocomplexity._version import __version__
 from neurocomplexity.core.recording import SpikeRecording
+from neurocomplexity.core.continuous import ContinuousSignal
 from neurocomplexity.core.provenance import ProvenanceRecord
+from neurocomplexity._progress import set_progress
+from neurocomplexity.analysis._binning import estimate_bin_spikes_bytes
 from neurocomplexity import core, io, analysis, inference, warnings
 
 # viz is optional (requires matplotlib); import lazily so headless installs
@@ -13,7 +16,8 @@ try:
 except ImportError:
     _HAS_VIZ = False
 
-__all__ = ["__version__", "SpikeRecording", "ProvenanceRecord",
+__all__ = ["__version__", "SpikeRecording", "ContinuousSignal", "ProvenanceRecord",
+           "set_progress", "estimate_bin_spikes_bytes",
            "core", "io", "analysis", "inference", "warnings"]
 if _HAS_VIZ:
     __all__.append("viz")

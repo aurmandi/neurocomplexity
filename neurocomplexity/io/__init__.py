@@ -12,6 +12,7 @@ from neurocomplexity.io._qc import add_quality
 __all__ = [
     "from_dict",
     "from_nwb",
+    "to_nwb",
     "from_phy",
     "from_kilosort",
     "from_spikeinterface",
@@ -24,6 +25,9 @@ __all__ = [
 def __getattr__(name):
     if name == "from_nwb":
         from neurocomplexity.io.nwb import from_nwb as _f
+        return _f
+    if name == "to_nwb":
+        from neurocomplexity.io._ndx import to_nwb as _f
         return _f
     if name == "from_phy":
         from neurocomplexity.io.phy import from_phy as _f

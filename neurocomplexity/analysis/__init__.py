@@ -19,6 +19,7 @@ from neurocomplexity.analysis.surrogates import (
     jitter_recording,
     shuffle_isis,
 )
+from neurocomplexity.analysis.stationarity import stationarity, StationarityResult
 
 __all__ = [
     "criticality", "CriticalityResult",
@@ -29,4 +30,5 @@ __all__ = [
     "shape_collapse", "ShapeCollapseResult",
     "partial_information", "PIDResult",
     "make_surrogate", "jitter_recording", "shuffle_isis",
+    "stationarity", "StationarityResult",
 ]

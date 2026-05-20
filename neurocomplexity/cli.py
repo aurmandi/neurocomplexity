@@ -216,14 +216,7 @@ def cmd_analyze(args):
         import matplotlib
         matplotlib.use("Agg")
         from neurocomplexity import viz
-        title = f"{Path(args.nwb).stem}  ({rec.duration:.0f}s, " \
-                f"{rec.units.shape[0]} units)"
-        fig = viz.figure_overview(results, title=title)
-        paths = viz.save_publication(fig, outdir / "overview",
-                                      formats=tuple(args.formats))
-        for p in paths:
-            print(f"  wrote {p}")
-        # Per-analysis figures
+        # Per-analysis figures (each rendered as its own SVG+TIFF+JPG triplet)
         if results.get("criticality") is not None:
             f1 = viz.figure_criticality(results["criticality"])
             viz.save_publication(f1, outdir / "criticality",
@@ -298,12 +291,22 @@ def cmd_figure(args):
     outdir.mkdir(parents=True, exist_ok=True)
 
     rebuilt = {k: _rebuild(k, v) for k, v in data["results"].items()}
-    title = data.get("input", "")
-    fig = viz.figure_overview(rebuilt, title=Path(title).stem if title else None)
-    paths = viz.save_publication(fig, outdir / "overview",
-                                  formats=tuple(args.formats))
-    for p in paths:
-        print(f"  wrote {p}")
+    pairs = [
+        ("criticality",   viz.figure_criticality),
+        ("branching",     viz.figure_branching),
+        ("shape_collapse", viz.figure_shape_collapse),
+        ("dimensionality", viz.figure_dimensionality),
+        ("pid",           viz.figure_pid),
+    ]
+    for name, fn in pairs:
+        res = rebuilt.get(name)
+        if res is None:
+            continue
+        fig = fn(res)
+        paths = viz.save_publication(fig, outdir / name,
+                                     formats=tuple(args.formats))
+        for p in paths:
+            print(f"  wrote {p}")
     return 0
 
 

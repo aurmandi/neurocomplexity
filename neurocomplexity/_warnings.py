@@ -19,6 +19,21 @@ class QualityControlWarning(UserWarning):
     """
 
 
+class MemoryAllocationWarning(UserWarning):
+    """Emitted when ``bin_spikes`` is about to allocate a counts matrix
+    larger than 25% of available RAM. Suggest ``chunk_seconds=...`` or
+    ``rec.crop(...)``."""
+
+
+class StationarityWarning(UserWarning):
+    """Emitted when a stationarity-sensitive analysis (criticality, branching,
+    transfer-entropy, shape-collapse) runs on a recording that
+    ``analysis.stationarity`` has flagged as non-stationary.
+
+    Deduplicated per ``(id(rec), analysis_name)``.
+    """
+
+
 _CURATION_COLUMNS = ("quality", "presence_ratio", "isi_violations_ratio", "KSLabel")
 
 _MESSAGE = (
@@ -52,3 +67,42 @@ def _warn_if_uncurated(rec: "SpikeRecording", analysis_name: str) -> None:
     _seen.add(key)
     _warnings.warn(_MESSAGE.format(analysis=analysis_name),
                    category=QualityControlWarning, stacklevel=3)
+
+
+_STATIONARITY_MESSAGE = (
+    "Running {analysis} on a recording flagged as non-stationary by "
+    "`nc.analysis.stationarity` ({reasons}). Stationarity-sensitive statistics "
+    "(criticality exponents, branching ratio, transfer entropy, shape-collapse "
+    "gamma) can be biased by rate drift or heteroskedasticity. Inspect with "
+    "`nc.analysis.stationarity(rec)`, restrict to a stationary epoch via "
+    "`rec.crop(...)`, or suppress with "
+    "`warnings.filterwarnings('ignore', category=nc.warnings.StationarityWarning)` "
+    "if you are certain."
+)
+
+_stationarity_seen: set[tuple[int, str]] = set()
+
+
+def _reset_stationarity_dedup() -> None:
+    """Test-only helper."""
+    _stationarity_seen.clear()
+
+
+def _warn_if_nonstationary(rec: "SpikeRecording", analysis_name: str) -> None:
+    """Run a default ``stationarity`` check and warn once if non-stationary."""
+    key = (id(rec), analysis_name)
+    if key in _stationarity_seen:
+        return
+    _stationarity_seen.add(key)
+    try:
+        from neurocomplexity.analysis.stationarity import stationarity
+        result = stationarity(rec)
+    except Exception:
+        return
+    if result.is_stationary:
+        return
+    reasons = "; ".join(result.flags) if result.flags else "see flags"
+    _warnings.warn(
+        _STATIONARITY_MESSAGE.format(analysis=analysis_name, reasons=reasons),
+        category=StationarityWarning, stacklevel=3,
+    )

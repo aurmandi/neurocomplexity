@@ -5,6 +5,14 @@ Allows users to write::
     import warnings, neurocomplexity as nc
     warnings.filterwarnings("ignore", category=nc.warnings.QualityControlWarning)
 """
-from neurocomplexity._warnings import QualityControlWarning
+from neurocomplexity._warnings import (
+    MemoryAllocationWarning,
+    QualityControlWarning,
+    StationarityWarning,
+)
 
-__all__ = ["QualityControlWarning"]
+__all__ = [
+    "QualityControlWarning",
+    "StationarityWarning",
+    "MemoryAllocationWarning",
+]
