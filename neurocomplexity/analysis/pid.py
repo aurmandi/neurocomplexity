@@ -158,11 +158,29 @@ def partial_information(rec: SpikeRecording,
         raise ValueError("n_levels must be >= 2")
     s1, s2 = sources
     bs = float(bin_size_ms) / 1000.0
-    counts = bin_spikes(rec, [target_pop, s1, s2], bs)
 
-    Y  = _quantile_discretise(counts[:, 0], n_levels)
-    S1 = _quantile_discretise(counts[:, 1], n_levels)
-    S2 = _quantile_discretise(counts[:, 2], n_levels)
+    def _series_for(name: str) -> np.ndarray:
+        """Return a 1-D float array per bin for either a population or a signal."""
+        if name in rec.populations:
+            return bin_spikes(rec, [name], bs)[:, 0].astype(np.float64)
+        if name in rec.signals:
+            from neurocomplexity.analysis._continuous import bin_signal_average
+            T = int(np.floor(rec.duration / bs))
+            arr = bin_signal_average(rec.signals[name], bin_size_s=bs, n_bins=T)
+            # Fill NaN with the global mean so quantile-discretise sees a clean array
+            mean = float(np.nanmean(arr)) if np.any(np.isfinite(arr)) else 0.0
+            arr = np.where(np.isnan(arr), mean, arr)
+            return arr
+        raise ValueError(
+            f"unknown stream {name!r}; not in rec.populations or rec.signals"
+        )
+
+    y_series = _series_for(target_pop)
+    s1_series = _series_for(s1)
+    s2_series = _series_for(s2)
+    Y  = _quantile_discretise(y_series, n_levels)
+    S1 = _quantile_discretise(s1_series, n_levels)
+    S2 = _quantile_discretise(s2_series, n_levels)
     if delay_bins > 0:
         Y  = Y[delay_bins:]
         S1 = S1[:-delay_bins]

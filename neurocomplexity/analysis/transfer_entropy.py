@@ -73,34 +73,62 @@ def transfer_entropy(rec: SpikeRecording,
                      bin_size_ms: float = 5.0,
                      delay_bins: int = 1,
                      estimator: str = "binary",
+                     signals: Sequence[str] | None = None,
                      ) -> TransferEntropyResult:
-    """Pairwise TE matrix across the given populations."""
-    from neurocomplexity._warnings import _warn_if_uncurated
+    """Pairwise TE matrix across the given populations and (optionally) signals.
+
+    Signals are discretised via a binary median split at the chosen bin width
+    and concatenated after populations in the matrix axis order. The result's
+    ``populations`` tuple carries the unified ordered list of names.
+    """
+    from neurocomplexity._warnings import _warn_if_uncurated, _warn_if_nonstationary
     _warn_if_uncurated(rec, "transfer_entropy")
+    _warn_if_nonstationary(rec, "transfer_entropy")
     if estimator != "binary":
         raise ValueError(f"only estimator='binary' is implemented in v0.1; got {estimator!r}")
     if populations is None:
         populations = list(rec.populations.keys())
-    if len(populations) < 2:
-        raise ValueError("need at least 2 populations for TE")
+    populations = list(populations)
+    signals = list(signals) if signals else []
+    if len(populations) + len(signals) < 2:
+        raise ValueError("need at least 2 streams (populations + signals) for TE")
+    for s in signals:
+        if s not in rec.signals:
+            raise ValueError(f"unknown signal {s!r}; available: {list(rec.signals.keys())}")
 
     bs = float(bin_size_ms) / 1000.0
-    counts = bin_spikes(rec, populations, bs)  # (T, P)
-    T, P = counts.shape
+    if populations:
+        counts = bin_spikes(rec, populations, bs)  # (T, P)
+        T = counts.shape[0]
+    else:
+        # signals-only path: still need T from the spike grid; use rec.duration.
+        T = int(np.floor(rec.duration / bs))
+        counts = np.zeros((T, 0), dtype=np.int32)
+
+    if signals:
+        from neurocomplexity.analysis._continuous import bin_signal_binary
+        sig_cols = [
+            bin_signal_binary(rec.signals[name], bin_size_s=bs, n_bins=T)
+            for name in signals
+        ]
+        sig_block = np.stack(sig_cols, axis=1) if sig_cols else np.zeros((T, 0), dtype=np.int32)
+        counts = np.concatenate([counts, sig_block], axis=1)
+    names = populations + signals
+    P = counts.shape[1]
     mat = np.zeros((P, P), dtype=np.float64)
-    for s in range(P):
-        for t in range(P):
-            if s == t:
-                continue
-            mat[s, t] = _binary_schreiber_te(counts[:, s], counts[:, t], delay=delay_bins)
+    from neurocomplexity._progress import progress_iter
+    pairs = [(s, t) for s in range(P) for t in range(P) if s != t]
+    for s, t in progress_iter(pairs, total=len(pairs), desc="TE matrix"):
+        mat[s, t] = _binary_schreiber_te(counts[:, s], counts[:, t], delay=delay_bins)
 
     return TransferEntropyResult(
         matrix=mat,
-        populations=tuple(populations),
+        populations=tuple(names),
         bin_size_seconds=bs,
         delay_bins=delay_bins,
         source=rec.source,
         params={"populations": list(populations),
+                "signals": list(signals),
                 "bin_size_ms": float(bin_size_ms),
                 "delay_bins": int(delay_bins),
                 "estimator": estimator},

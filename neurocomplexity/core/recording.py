@@ -6,6 +6,7 @@ from typing import Iterable, Mapping, Sequence
 import numpy as np
 import pandas as pd
 
+from neurocomplexity.core.continuous import ContinuousSignal
 from neurocomplexity.core.exceptions import (
     PopulationError,
     RecordingValidationError,
@@ -39,6 +40,10 @@ class SpikeRecording:
     # Provenance records for any quality/anatomy/trials attachments added via
     # add_quality / add_anatomy / add_trials helpers (future tasks).
     attachments: tuple[ProvenanceRecord, ...] = field(default_factory=tuple)
+    # Optional uniformly-sampled continuous signals (pupil, running speed,
+    # stimulus contrast, photometry, ...) attached for TE / PID analyses
+    # via the signals= kwarg. Each must fit inside [0, duration].
+    signals: Mapping[str, "ContinuousSignal"] = field(default_factory=dict)
     # Set to True by filter_units so downstream analysis entry points can
     # emit a QualityControlWarning when operating on an already-filtered rec.
     _filtered: bool = False
@@ -76,6 +81,20 @@ class SpikeRecording:
         object.__setattr__(self, "spike_times", st)
         object.__setattr__(self, "unit_ids", uid)
         object.__setattr__(self, "populations", clean_pops)
+
+        clean_signals: dict[str, ContinuousSignal] = {}
+        for name, sig in self.signals.items():
+            if not isinstance(sig, ContinuousSignal):
+                raise RecordingValidationError(
+                    f"signal {name!r} must be a ContinuousSignal, got {type(sig).__name__}"
+                )
+            if sig.t_end > self.duration + 1e-9:
+                raise RecordingValidationError(
+                    f"signal {name!r} ends at t={sig.t_end:.6f}s but rec.duration "
+                    f"is {self.duration:.6f}s"
+                )
+            clean_signals[str(name)] = sig
+        object.__setattr__(self, "signals", clean_signals)
 
     # ---- builder pattern (immutable) ----
 
@@ -178,6 +197,20 @@ class SpikeRecording:
                 )
 
         return replace(self, populations=pops)
+
+    def with_signal(self, name: str, signal: ContinuousSignal) -> "SpikeRecording":
+        """Return a new recording with ``signal`` attached under ``name``.
+
+        Replaces an existing signal of the same name. The signal must fit
+        within [0, self.duration] (validated by ``__post_init__``).
+        """
+        if not isinstance(signal, ContinuousSignal):
+            raise RecordingValidationError(
+                f"signal must be ContinuousSignal, got {type(signal).__name__}"
+            )
+        new_signals = dict(self.signals)
+        new_signals[str(name)] = signal
+        return replace(self, signals=new_signals)
 
     def crop(self, start: float, end: float) -> "SpikeRecording":
         if not (0 <= start < end):
