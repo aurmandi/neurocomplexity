@@ -43,8 +43,9 @@ def wilting_mr(rec: SpikeRecording,
                k_min: int = 1,
                ) -> BranchingResult:
     """Multi-step regression branching ratio."""
-    from neurocomplexity._warnings import _warn_if_uncurated
+    from neurocomplexity._warnings import _warn_if_uncurated, _warn_if_nonstationary
     _warn_if_uncurated(rec, "branching_ratio")
+    _warn_if_nonstationary(rec, "branching_ratio")
     if populations is None:
         populations = list(rec.populations.keys())
     if k_max <= k_min:

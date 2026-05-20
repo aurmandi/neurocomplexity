@@ -121,8 +121,9 @@ def criticality(rec: SpikeRecording,
                 bin_size_ms: Sequence[float] = (2, 4, 8, 16, 32),
                 ) -> CriticalityResult:
     """Run the bin-size sweep, fit power laws, return the best fit by R²."""
-    from neurocomplexity._warnings import _warn_if_uncurated
+    from neurocomplexity._warnings import _warn_if_uncurated, _warn_if_nonstationary
     _warn_if_uncurated(rec, "criticality")
+    _warn_if_nonstationary(rec, "criticality")
     if populations is None:
         populations = list(rec.populations.keys())
     if not populations:
