@@ -78,16 +78,8 @@ paths = viz.save_publication(fig, "fig1_criticality", tiff_dpi=600)
 (quality 95, 600 dpi). Set ``tiff_dpi=1200`` for camera-ready TIFFs. PDF output
 is intentionally not supported.
 
-### Composite multi-panel figures
-
-``figure_panel`` arranges multiple results into a single figure with auto panel
-letters (`a`, `b`, ...):
-
-```python
-fig = viz.figure_panel(crit_result, branching_result, pid_result,
-                       palette="wine")
-viz.save_publication(fig, "fig2_composite", tiff_dpi=1200)
-```
+Each analysis result gets its own publication-ready figure. Compose
+multi-panel layouts yourself in your manuscript figure-prep tool of choice.
 
 ## Run the benchmark suite against the published baseline
 

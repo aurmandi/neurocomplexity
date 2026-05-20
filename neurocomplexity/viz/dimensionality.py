@@ -8,6 +8,27 @@ from neurocomplexity.viz._palettes import get_palette, DEFAULT_PALETTE
 from neurocomplexity.viz._style import _apply_panel_label
 
 
+def _sorted_eig(result):
+    eig = np.asarray(result.eigenvalues, dtype=float)
+    eig = np.sort(eig)[::-1]
+    return eig[eig > 0]
+
+
+def _draw_cumulative(ax, eig, pr, n_units, *, p):
+    cum = np.cumsum(eig) / eig.sum()
+    idx = np.arange(1, eig.size + 1)
+    ax.plot(idx, cum, "-", lw=1.2, color=p["signal"])
+    ax.axhline(0.9, ls="--", lw=0.7, color=p["muted"])
+    ax.axvline(pr, ls="--", lw=1.0, color=p["accent"], label=f"PR={pr:.1f}")
+    ax.set_xlabel("Component index")
+    ax.set_ylabel("Cumulative variance")
+    ax.set_ylim(0, 1.04)
+    ax.legend(loc="lower right", handlelength=1.6, borderpad=0.3)
+    ax.text(0.02, 0.97,
+            f"N units = {n_units}\nPR/N = {pr / n_units:.2f}",
+            transform=ax.transAxes, va="top", fontsize=6, color=p["text"])
+
+
 def figure_dimensionality(
     result,
     *,
@@ -17,42 +38,27 @@ def figure_dimensionality(
     ax=None,
 ):
     p = get_palette(palette)
-    if ax is None:
-        size = figsize if figsize is not None else (4.4, 2.1)
-        fig, axes = plt.subplots(1, 2, figsize=size)
-    else:
+    eig = _sorted_eig(result)
+    composite = ax is not None
+
+    if composite:
         fig = ax.figure
-        ax.set_axis_off()
-        gs = ax.get_subplotspec().subgridspec(1, 2)
-        axes = [fig.add_subplot(gs[0]), fig.add_subplot(gs[1])]
-    ax_scree, ax_cum = axes
+        _draw_cumulative(ax, eig, result.participation_ratio,
+                         result.n_units, p=p)
+        _apply_panel_label(ax, panel_label)
+        return fig
 
-    eig = np.asarray(result.eigenvalues, dtype=float)
-    eig = np.sort(eig)[::-1]
-    eig = eig[eig > 0]
+    size = figsize if figsize is not None else (5.4, 2.6)
+    fig, (ax_scree, ax_cum) = plt.subplots(1, 2, figsize=size)
+
     idx = np.arange(1, eig.size + 1)
-
-    ax_scree.semilogy(idx, eig, "o-", ms=2.5, lw=0.8,
+    ax_scree.semilogy(idx, eig, "o-", ms=3, lw=1.0,
                       color=p["signal"], mec="none")
     ax_scree.set_xlabel("Component index")
     ax_scree.set_ylabel("Eigenvalue")
 
-    cum = np.cumsum(eig) / eig.sum()
-    ax_cum.plot(idx, cum, "-", lw=1.0, color=p["signal"])
-    ax_cum.axhline(0.9, ls="--", lw=0.6, color=p["muted"])
-    pr = result.participation_ratio
-    ax_cum.axvline(pr, ls="--", lw=0.8, color=p["accent"],
-                   label=f"PR={pr:.1f}")
-    ax_cum.set_xlabel("Component index")
-    ax_cum.set_ylabel("Cumulative variance")
-    ax_cum.set_ylim(0, 1.02)
-    ax_cum.legend(loc="lower right")
-    ax_cum.text(0.02, 0.97,
-                f"N units = {result.n_units}\n"
-                f"PR/N = {pr / result.n_units:.2f}",
-                transform=ax_cum.transAxes, va="top", fontsize=6,
-                color=p["muted"])
+    _draw_cumulative(ax_cum, eig, result.participation_ratio,
+                     result.n_units, p=p)
 
     _apply_panel_label(ax_scree, panel_label)
-    fig.tight_layout()
     return fig

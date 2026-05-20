@@ -53,8 +53,14 @@ def add_scale_bar(
     x0_frac, y0_frac = _LOCATIONS[location]
     xlim = ax.get_xlim()
     ylim = ax.get_ylim()
+    # Use signed spans so inverted axes (e.g. imshow with origin='upper') still
+    # place anchors and label offsets on the correct side of the data.
     xspan = xlim[1] - xlim[0]
     yspan = ylim[1] - ylim[0]
+    y_inverted = ax.yaxis_inverted()
+    # For inverted y, "lower" in display coords corresponds to ylim[0] (the
+    # numerically larger value), and the bar must grow toward smaller y values.
+    y_sign = -1.0 if y_inverted else 1.0
 
     anchor_x = xlim[0] + x0_frac * xspan
     anchor_y = ylim[0] + y0_frac * yspan
@@ -79,10 +85,13 @@ def add_scale_bar(
 
     if y_length is not None:
         _strip_axis(ax, "y")
+        # On an inverted y-axis (imshow), "upper" in display means smaller data
+        # y; the y_sign flip keeps the bar growing toward the data interior.
+        signed_len = y_sign * y_length
         if "upper" in location:
-            y_start, y_end = anchor_y - y_length, anchor_y
+            y_start, y_end = anchor_y - signed_len, anchor_y
         else:
-            y_start, y_end = anchor_y, anchor_y + y_length
+            y_start, y_end = anchor_y, anchor_y + signed_len
         bar = mlines.Line2D(
             [anchor_x, anchor_x], [y_start, y_end],
             color=color, linewidth=linewidth, solid_capstyle="butt",

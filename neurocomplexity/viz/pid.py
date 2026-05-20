@@ -16,7 +16,7 @@ def figure_pid(
     ax=None,
 ):
     p, fig, ax = _resolve_palette_and_axes(
-        palette=palette, ax=ax, figsize=figsize, default_size=(3.0, 2.2),
+        palette=palette, ax=ax, figsize=figsize, default_size=(3.6, 2.7),
     )
 
     s1, s2 = result.sources
@@ -39,7 +39,6 @@ def figure_pid(
             f"total MI = {result.total_mi:.4f}\n"
             f"bin = {result.bin_size_seconds * 1e3:.1f} ms",
             transform=ax.transAxes, ha="right", va="top",
-            fontsize=6, color=p["muted"])
+            fontsize=6, color=p["text"])
     _apply_panel_label(ax, panel_label)
-    fig.tight_layout()
     return fig

@@ -19,14 +19,14 @@ def test_palette_role_keys_consistent():
 
 
 def test_palette_hex_colours_canonical():
-    assert PALETTES["forest"]["text"] == "#51513D"
+    # Text is forced to black across all palettes for print legibility
+    for name in ("forest", "wine", "sage"):
+        assert PALETTES[name]["text"] == "#000000"
     assert PALETTES["forest"]["signal"] == "#2C2A4A"
     assert PALETTES["forest"]["accent"] == "#A6A867"
     assert PALETTES["forest"]["muted"] == "#9D91A3"
-    assert PALETTES["wine"]["text"] == "#60566B"
     assert PALETTES["wine"]["signal"] == "#66232A"
     assert PALETTES["wine"]["accent"] == "#C39B60"
-    assert PALETTES["sage"]["text"] == "#76818E"
     assert PALETTES["sage"]["signal"] == "#723D46"
     assert PALETTES["sage"]["accent"] == "#C9CBA3"
 
@@ -65,11 +65,10 @@ def test_lighten_pushes_to_higher_lightness():
 def test_apply_style_sets_text_color_from_palette():
     import matplotlib as mpl
     from neurocomplexity.viz._style import apply_style
-    apply_style(palette="wine")
-    assert mpl.rcParams["text.color"] == "#60566B"
-    assert mpl.rcParams["axes.edgecolor"] == "#60566B"
-    apply_style(palette="forest")
-    assert mpl.rcParams["text.color"] == "#51513D"
+    for pal in ("forest", "wine", "sage"):
+        apply_style(palette=pal)
+        assert mpl.rcParams["text.color"] == "#000000"
+        assert mpl.rcParams["axes.edgecolor"] == "#000000"
 
 
 def test_set_palette_changes_current():

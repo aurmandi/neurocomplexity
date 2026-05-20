@@ -7,9 +7,6 @@ spines and tick labels, not just data colours.
 """
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Iterable
-
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 
@@ -55,9 +52,12 @@ def apply_style(palette: str = DEFAULT_PALETTE) -> None:
         "lines.markersize": 3.5,
         "legend.frameon": False,
         "figure.dpi": 120,
+        "figure.constrained_layout.use": True,
+        "figure.constrained_layout.h_pad": 0.04,
+        "figure.constrained_layout.w_pad": 0.04,
         "savefig.dpi": 600,
         "savefig.bbox": "tight",
-        "savefig.pad_inches": 0.02,
+        "savefig.pad_inches": 0.08,
         "text.color": text,
         "axes.labelcolor": text,
         "axes.edgecolor": text,
@@ -95,19 +95,6 @@ def panel_label(ax, letter: str, *, x: float = -0.07, y: float = 1.02) -> None:
             fontsize=9, fontweight="bold",
             ha="right", va="bottom",
             color=current_palette()["text"])
-
-
-def save_publication(fig, path, *, formats: Iterable[str] = ("pdf", "svg", "png"),
-                     dpi: int = 600) -> list[Path]:
-    """Save ``fig`` to ``path`` in multiple formats. Returns list of paths."""
-    path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    out = []
-    for fmt in formats:
-        p = path.with_suffix(f".{fmt}")
-        fig.savefig(p, dpi=dpi)
-        out.append(p)
-    return out
 
 
 def _resolve_palette_and_axes(*, palette, ax, figsize, default_size):

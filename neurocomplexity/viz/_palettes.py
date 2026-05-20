@@ -38,8 +38,9 @@ def _lighten(hex_color: str, target_l: float = 0.75) -> str:
 
 
 PALETTES: dict[str, dict] = {
+    # Text is always black for maximum print legibility, regardless of palette.
     "forest": {
-        "text":   "#51513D",
+        "text":   "#000000",
         "signal": "#2C2A4A",
         "accent": "#A6A867",
         "muted":  "#9D91A3",
@@ -47,7 +48,7 @@ PALETTES: dict[str, dict] = {
         "categorical": ["#2C2A4A", "#A6A867", "#9D91A3", "#51513D"],
     },
     "wine": {
-        "text":   "#60566B",
+        "text":   "#000000",
         "signal": "#66232A",
         "accent": "#C39B60",
         "muted":  "#60566B",
@@ -55,7 +56,7 @@ PALETTES: dict[str, dict] = {
         "categorical": ["#66232A", "#C39B60", "#60566B"],
     },
     "sage": {
-        "text":   "#76818E",
+        "text":   "#000000",
         "signal": "#723D46",
         "accent": "#C9CBA3",
         "muted":  "#76818E",

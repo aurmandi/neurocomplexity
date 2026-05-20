@@ -16,7 +16,7 @@ def figure_branching(
     ax=None,
 ):
     p, fig, ax = _resolve_palette_and_axes(
-        palette=palette, ax=ax, figsize=figsize, default_size=(3.0, 2.2),
+        palette=palette, ax=ax, figsize=figsize, default_size=(3.6, 2.7),
     )
 
     ks = np.asarray(result.k_lags)
@@ -44,8 +44,7 @@ def figure_branching(
     ax.set_ylabel(r"$r_k$")
     ax.legend(loc="upper right")
     ax.text(0.02, 0.04, f"$R^2={result.r_squared:.2f}$",
-            transform=ax.transAxes, fontsize=6, color=p["muted"])
+            transform=ax.transAxes, fontsize=6, color=p["text"])
 
     _apply_panel_label(ax, panel_label)
-    fig.tight_layout()
     return fig

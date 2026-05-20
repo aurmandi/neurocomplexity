@@ -22,6 +22,22 @@ def _log_pdf(values, nbins=30):
     return centers[mask], pdf[mask]
 
 
+def _draw_powerlaw_panel(ax, xs, ps, alpha, *, p, x_label, y_label, alpha_label):
+    """Single P(x) panel with median-anchored power-law fit overlay."""
+    ax.loglog(xs, ps, "o", ms=3.5, color=p["signal"], mec="none", alpha=0.9,
+              label="data")
+    if xs.size and np.isfinite(alpha):
+        # Anchor by median offset in log space — visually centred line
+        log_offset = float(np.median(np.log(ps) + alpha * np.log(xs)))
+        xx = np.array([xs.min(), xs.max()])
+        yy = np.exp(log_offset) * xx ** (-alpha)
+        ax.loglog(xx, yy, "--", lw=1.1, color=p["accent"],
+                  label=fr"${alpha_label}={alpha:.2f}$")
+    ax.set_xlabel(x_label)
+    ax.set_ylabel(y_label)
+    ax.legend(loc="lower left", handlelength=1.6, borderpad=0.3)
+
+
 def figure_criticality(
     result,
     *,
@@ -30,50 +46,43 @@ def figure_criticality(
     figsize: tuple[float, float] | None = None,
     ax=None,
 ):
-    """Render P(s), P(T) with fitted power laws."""
+    """Render P(s) + P(T) standalone, or P(s)-only when ``ax=`` is given."""
     p = get_palette(palette)
-    if ax is None:
-        size = figsize if figsize is not None else (4.4, 2.1)
-        fig, axes = plt.subplots(1, 2, figsize=size)
-    else:
+    composite = ax is not None
+
+    if composite:
+        # Compact single-panel mode when ax= is provided: P(s) only
         fig = ax.figure
-        ax.set_axis_off()
-        gs = ax.get_subplotspec().subgridspec(1, 2)
-        axes = [fig.add_subplot(gs[0]), fig.add_subplot(gs[1])]
-    ax_s, ax_t = axes
+        xs, ps = _log_pdf(result.sizes)
+        _draw_powerlaw_panel(ax, xs, ps, result.alpha_s, p=p,
+                             x_label="Avalanche size $s$",
+                             y_label="$P(s)$",
+                             alpha_label=r"\alpha_s")
+        ax.text(0.98, 0.97,
+                f"$R^2={result.r_squared:.2f}$  bin$={result.optimal_bin_seconds * 1e3:.1f}$ ms",
+                transform=ax.transAxes, ha="right", va="top",
+                fontsize=6, color=p["text"])
+        _apply_panel_label(ax, panel_label)
+        return fig
+
+    # Standalone two-panel figure
+    size = figsize if figsize is not None else (5.4, 2.6)
+    fig, (ax_s, ax_t) = plt.subplots(1, 2, figsize=size)
 
     xs, ps = _log_pdf(result.sizes)
-    ax_s.loglog(xs, ps, "o", ms=3, color=p["signal"], mec="none", alpha=0.85,
-                label="data")
-    if xs.size:
-        x0, y0 = xs[0], ps[0]
-        xx = np.array([xs.min(), xs.max()])
-        yy = y0 * (xx / x0) ** (-result.alpha_s)
-        ax_s.loglog(xx, yy, "--", lw=0.9, color=p["accent"],
-                    label=fr"$\alpha_s={result.alpha_s:.2f}$")
-    ax_s.set_xlabel("Avalanche size $s$")
-    ax_s.set_ylabel("$P(s)$")
-    ax_s.legend(loc="lower left")
-
+    _draw_powerlaw_panel(ax_s, xs, ps, result.alpha_s, p=p,
+                         x_label="Avalanche size $s$", y_label="$P(s)$",
+                         alpha_label=r"\alpha_s")
     xt, pt = _log_pdf(result.lifetimes)
-    ax_t.loglog(xt, pt, "o", ms=3, color=p["signal"], mec="none", alpha=0.85,
-                label="data")
-    if xt.size:
-        x0, y0 = xt[0], pt[0]
-        xx = np.array([xt.min(), xt.max()])
-        yy = y0 * (xx / x0) ** (-result.alpha_t)
-        ax_t.loglog(xx, yy, "--", lw=0.9, color=p["accent"],
-                    label=fr"$\alpha_t={result.alpha_t:.2f}$")
-    ax_t.set_xlabel("Lifetime $T$ (s)")
-    ax_t.set_ylabel("$P(T)$")
-    ax_t.legend(loc="lower left")
+    _draw_powerlaw_panel(ax_t, xt, pt, result.alpha_t, p=p,
+                         x_label="Lifetime $T$ (s)", y_label="$P(T)$",
+                         alpha_label=r"\alpha_t")
 
     ax_s.text(0.98, 0.97,
               f"$R^2={result.r_squared:.2f}$\n"
-              f"bin={result.optimal_bin_seconds * 1e3:.1f} ms",
+              f"bin$={result.optimal_bin_seconds * 1e3:.1f}$ ms",
               transform=ax_s.transAxes, ha="right", va="top",
-              fontsize=6, color=p["muted"])
+              fontsize=6, color=p["text"])
 
     _apply_panel_label(ax_s, panel_label)
-    fig.tight_layout()
     return fig
