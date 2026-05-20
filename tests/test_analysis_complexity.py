@@ -43,3 +43,73 @@ def test_lmcresult_is_frozen_dataclass():
             "H_traj", "D_traj", "C_traj", "window_centers_s",
             "bin_size_seconds", "window_seconds", "step_seconds",
             "n_states_per_pop", "source", "params"}.issubset(fields)
+
+
+from neurocomplexity.analysis.complexity import lmc_complexity
+from neurocomplexity.core.recording import SpikeRecording
+
+
+def _poisson_rec(rate_hz: float, duration_s: float, n_units: int = 30,
+                  seed: int = 0, populations: dict | None = None) -> SpikeRecording:
+    rng = np.random.default_rng(seed)
+    spike_times = []
+    unit_ids = []
+    for u in range(n_units):
+        n = rng.poisson(rate_hz * duration_s)
+        ts = np.sort(rng.uniform(0, duration_s, n))
+        spike_times.append(ts)
+        unit_ids.append(np.full(ts.size, u, dtype=np.int64))
+    spike_times = np.concatenate(spike_times) if spike_times else np.array([])
+    unit_ids = np.concatenate(unit_ids) if unit_ids else np.array([], dtype=np.int64)
+    order = np.argsort(spike_times, kind="stable")
+    spike_times = spike_times.astype(np.float64)[order]
+    unit_ids = unit_ids[order]
+    import pandas as pd
+    units = pd.DataFrame({"id": np.arange(n_units, dtype=np.int64),
+                          "quality": ["good"] * n_units})
+    pops = populations or {"all": np.ones(n_units, dtype=bool)}
+    return SpikeRecording(
+        spike_times=spike_times, unit_ids=unit_ids, units=units,
+        populations=pops, duration=float(duration_s), sampling_rate=30000.0,
+        source="synthetic", _filtered=True,
+    )
+
+
+def test_lmc_population_mode_returns_per_pop_arrays():
+    rec = _poisson_rec(rate_hz=20.0, duration_s=10.0, n_units=20)
+    result = lmc_complexity(rec, kind="population", bin_size_s=0.05)
+    assert result.kind == "population"
+    assert result.populations == ("all",)
+    assert result.H_per_pop.shape == (1,)
+    assert result.D_per_pop.shape == (1,)
+    assert result.C_per_pop.shape == (1,)
+    assert result.H_traj is None
+    assert 0.0 <= result.H_per_pop[0] <= 1.0
+    assert result.D_per_pop[0] >= 0.0
+    assert result.C_per_pop[0] == pytest.approx(
+        result.H_per_pop[0] * result.D_per_pop[0])
+
+
+def test_lmc_two_populations_returns_two_dots():
+    n = 40
+    mask_a = np.zeros(n, dtype=bool); mask_a[:20] = True
+    mask_b = ~mask_a
+    rec = _poisson_rec(rate_hz=20.0, duration_s=10.0, n_units=n,
+                       populations={"a": mask_a, "b": mask_b})
+    result = lmc_complexity(rec, kind="population", bin_size_s=0.05)
+    assert result.populations == ("a", "b")
+    assert result.H_per_pop.shape == (2,)
+
+
+def test_lmc_invalid_kind_raises():
+    rec = _poisson_rec(rate_hz=20.0, duration_s=5.0)
+    with pytest.raises(ValueError, match="kind"):
+        lmc_complexity(rec, kind="banana", bin_size_s=0.05)
+
+
+def test_lmc_params_dict_is_recompute_complete():
+    rec = _poisson_rec(rate_hz=20.0, duration_s=5.0)
+    result = lmc_complexity(rec, kind="population", bin_size_s=0.05)
+    # Adapter must be able to call lmc_complexity(rec, **params) on a surrogate.
+    redo = lmc_complexity(rec, **result.params)
+    assert np.allclose(redo.C_per_pop, result.C_per_pop)
