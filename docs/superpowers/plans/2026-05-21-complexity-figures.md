@@ -338,8 +338,7 @@ def lmc_complexity(rec: SpikeRecording,
 
     params = {"populations": list(populations), "bin_size_s": float(bin_size_s),
               "kind": kind, "window_seconds": float(window_seconds),
-              "step_seconds": float(step_seconds),
-              "alternative": "greater"}
+              "step_seconds": float(step_seconds)}
 
     counts = bin_spikes(rec, populations, bin_size_s)  # (T, P) int32
     T, P = counts.shape
@@ -561,7 +560,6 @@ Add the adapter function next to the others:
 ```python
 def _lmc_adapter(result: LMCResult):
     kw = dict(result.params)
-    kw.pop("alternative", None)
     def f(rec):
         return np.asarray(lmc_complexity(rec, **kw).C_per_pop, dtype=float)
     return f
@@ -1042,7 +1040,7 @@ def multiscale_entropy(rec: SpikeRecording,
 
     params = {"populations": list(populations), "bin_size_s": float(bin_size_s),
               "scale_max": int(scale_max), "m": int(m),
-              "r_factor": float(r_factor), "alternative": "greater"}
+              "r_factor": float(r_factor)}
 
     counts = bin_spikes(rec, populations, bin_size_s).astype(np.float64)  # (T, P)
     T, P = counts.shape
@@ -1139,7 +1137,6 @@ Add adapter:
 ```python
 def _mse_adapter(result: MSEResult):
     kw = dict(result.params)
-    kw.pop("alternative", None)
     def f(rec):
         return np.asarray(multiscale_entropy(rec, **kw).sampen, dtype=float)
     return f
