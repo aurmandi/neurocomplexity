@@ -85,12 +85,16 @@ def _ci_from_dist(dist: np.ndarray, level: float, observed=None):
 
 
 def _run(seeds, fn, n_jobs):
+    from neurocomplexity._progress import progress_iter
+    seeds_list = list(seeds)
     if _HAS_JOBLIB and n_jobs != 1:
         out = Parallel(n_jobs=n_jobs, prefer="threads")(
-            delayed(fn)(s) for s in seeds
+            delayed(fn)(s) for s in progress_iter(
+                seeds_list, total=len(seeds_list), desc="bootstrap")
         )
     else:
-        out = [fn(s) for s in seeds]
+        out = [fn(s) for s in progress_iter(
+            seeds_list, total=len(seeds_list), desc="bootstrap")]
     return out
 
 

@@ -114,12 +114,15 @@ def test(
     def _one(i):
         return np.asarray(stat(pool[i]))
 
+    from neurocomplexity._progress import progress_iter
     if _HAS_JOBLIB and n_jobs != 1:
         nulls = Parallel(n_jobs=n_jobs, prefer="threads")(
-            delayed(_one)(i) for i in range(len(pool))
+            delayed(_one)(i) for i in progress_iter(
+                range(len(pool)), total=len(pool), desc="null replicates")
         )
     else:
-        nulls = [_one(i) for i in range(len(pool))]
+        nulls = [_one(i) for i in progress_iter(
+            range(len(pool)), total=len(pool), desc="null replicates")]
     null = np.stack(nulls, axis=0)
 
     p = pvalue_from_null(obs_arr, null, alternative=alternative)

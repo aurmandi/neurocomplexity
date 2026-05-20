@@ -88,7 +88,9 @@ def autonomy(rec: SpikeRecording,
     bs = float(bin_size_ms) / 1000.0
     counts = bin_spikes(rec, populations, bs)
     values: dict[str, float] = {}
-    for i, name in enumerate(populations):
+    from neurocomplexity._progress import progress_iter
+    for i, name in progress_iter(list(enumerate(populations)),
+                                 total=len(populations), desc="autonomy"):
         values[name] = _autonomy_for(counts, target_col=i, max_lag=max_lag)
 
     return AutonomyResult(
