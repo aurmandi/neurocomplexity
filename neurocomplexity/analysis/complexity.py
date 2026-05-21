@@ -69,7 +69,6 @@ def _lmc_disequilibrium(counts: np.ndarray) -> float:
     return float(np.sum((p - 1.0 / N) ** 2))
 
 
-from neurocomplexity._warnings import _warn_if_uncurated, _warn_if_nonstationary
 from neurocomplexity.analysis._binning import bin_spikes
 from neurocomplexity.core.recording import SpikeRecording
 
@@ -105,6 +104,7 @@ def lmc_complexity(rec: SpikeRecording,
       - ``"trajectory"``: sliding-window (H, C) over time; one row per window.
       - ``"both"``: both, returned in a single result.
     """
+    from neurocomplexity._warnings import _warn_if_uncurated, _warn_if_nonstationary
     _warn_if_uncurated(rec, "lmc_complexity")
     _warn_if_nonstationary(rec, "lmc_complexity")
     if kind not in _ALLOWED_KIND:
