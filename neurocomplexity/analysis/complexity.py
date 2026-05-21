@@ -148,6 +148,37 @@ def lmc_complexity(rec: SpikeRecording,
     )
 
 
-def _trajectory(counts, bin_size_s, window_seconds, step_seconds):
-    """Placeholder; real implementation lands in Task 3."""
-    return None, None, None, None
+def _trajectory(counts: np.ndarray, bin_size_s: float,
+                 window_seconds: float, step_seconds: float):
+    """Sliding-window (H, D, C) on per-population binned counts.
+
+    Returns (H, D, C, centers) where H, D, C have shape (W, P) and centers
+    has shape (W,) in seconds (window midpoints).
+    """
+    from neurocomplexity._progress import progress_iter
+    T, P = counts.shape
+    win_bins = int(round(window_seconds / bin_size_s))
+    step_bins = int(round(step_seconds / bin_size_s))
+    if win_bins < 2:
+        raise ValueError(
+            f"window_seconds ({window_seconds}) must yield >= 2 bins at "
+            f"bin_size_s={bin_size_s}")
+    if step_bins < 1:
+        raise ValueError(
+            f"step_seconds ({step_seconds}) must yield >= 1 bin at "
+            f"bin_size_s={bin_size_s}")
+    if T < win_bins:
+        raise ValueError(
+            f"recording has {T} bins; need >= window_bins={win_bins}")
+    starts = np.arange(0, T - win_bins + 1, step_bins, dtype=np.int64)
+    W = starts.size
+    H = np.zeros((W, P), dtype=np.float64)
+    D = np.zeros((W, P), dtype=np.float64)
+    C = np.zeros((W, P), dtype=np.float64)
+    for wi, s in enumerate(progress_iter(starts, total=W, desc="lmc-traj")):
+        window = counts[s:s + win_bins, :]
+        for p in range(P):
+            h, d, c, _ = _hdc_from_count_series(window[:, p])
+            H[wi, p] = h; D[wi, p] = d; C[wi, p] = c
+    centers = (starts + win_bins / 2.0) * bin_size_s
+    return H, D, C, centers

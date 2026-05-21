@@ -113,3 +113,41 @@ def test_lmc_params_dict_is_recompute_complete():
     # Adapter must be able to call lmc_complexity(rec, **params) on a surrogate.
     redo = lmc_complexity(rec, **result.params)
     assert np.allclose(redo.C_per_pop, result.C_per_pop)
+
+
+def test_lmc_trajectory_mode_shapes():
+    rec = _poisson_rec(rate_hz=20.0, duration_s=10.0)
+    result = lmc_complexity(rec, kind="trajectory", bin_size_s=0.05,
+                             window_seconds=1.0, step_seconds=0.5)
+    assert result.kind == "trajectory"
+    # windows: floor((10 - 1)/0.5) + 1 = 19
+    assert result.H_traj.shape == (19, 1)
+    assert result.D_traj.shape == (19, 1)
+    assert result.C_traj.shape == (19, 1)
+    assert result.window_centers_s.shape == (19,)
+    # population fields also populated even in trajectory mode
+    assert result.H_per_pop.shape == (1,)
+
+
+def test_lmc_both_mode_populates_everything():
+    rec = _poisson_rec(rate_hz=20.0, duration_s=10.0)
+    result = lmc_complexity(rec, kind="both")
+    assert result.H_per_pop.shape == (1,)
+    assert result.H_traj is not None
+    assert result.H_traj.shape[1] == 1
+
+
+def test_lmc_trajectory_window_smaller_than_bin_raises():
+    rec = _poisson_rec(rate_hz=20.0, duration_s=10.0)
+    with pytest.raises(ValueError, match="window_seconds"):
+        lmc_complexity(rec, kind="trajectory",
+                        bin_size_s=0.1, window_seconds=0.05)
+
+
+def test_lmc_trajectory_values_in_range():
+    rec = _poisson_rec(rate_hz=20.0, duration_s=10.0)
+    r = lmc_complexity(rec, kind="trajectory", bin_size_s=0.05,
+                       window_seconds=1.0, step_seconds=0.5)
+    assert np.all((r.H_traj >= 0) & (r.H_traj <= 1))
+    assert np.all(r.D_traj >= 0)
+    assert np.allclose(r.C_traj, r.H_traj * r.D_traj)
