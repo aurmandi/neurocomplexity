@@ -14,6 +14,27 @@ def _to_str_list(arr) -> list[str]:
 
 
 def load_sharptrack(path: Path) -> pd.DataFrame:
+    """Read a SHARP-Track MATLAB ``.mat`` reconstruction into a Brainglobe-style frame.
+
+    Parameters
+    ----------
+    path
+        Path to a ``.mat`` file written by SHARP-Track. Must contain a
+        ``probe_ccf`` struct with ``channels``, ``areas`` and (optionally)
+        ``areas_full`` fields.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Columns: ``Channel`` (0-indexed; MATLAB 1-indexing converted),
+        ``Brain region acronym``, ``Brain region``. Compatible with
+        ``add_anatomy(..., format="brainglobe")`` for downstream joining.
+
+    Raises
+    ------
+    ValueError
+        If ``probe_ccf`` is missing from the file.
+    """
     from scipy.io import loadmat
 
     raw = loadmat(str(path), squeeze_me=True, struct_as_record=False)

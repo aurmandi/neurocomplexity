@@ -73,6 +73,11 @@ def _detect_csv(df: pd.DataFrame) -> Optional[str]:
 
 
 def sniff_anatomy_format(df: pd.DataFrame) -> Optional[str]:
+    """Detect anatomy-file format from column names alone.
+
+    Returns one of ``"brainglobe"``, ``"pinpoint"``, ``"csv"``, or ``None``
+    if no matching pattern is found.
+    """
     for detector in (_detect_brainglobe, _detect_pinpoint, _detect_csv):
         result = detector(df)
         if result is not None:

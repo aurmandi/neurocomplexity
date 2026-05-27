@@ -26,6 +26,10 @@ from neurocomplexity.viz.inference import (
     figure_bootstrap, figure_null_test,
     figure_significance_matrix, figure_volcano,
 )
+from neurocomplexity.viz.complexity import figure_lmc_complexity
+from neurocomplexity.viz.mse import figure_mse
+from neurocomplexity.viz.manifold import figure_manifold
+from neurocomplexity.viz.network import figure_te_network
 
 
 __all__ = [
@@ -36,4 +40,7 @@ __all__ = [
     "figure_dimensionality", "figure_pid",
     "figure_bootstrap", "figure_null_test",
     "figure_significance_matrix", "figure_volcano",
+    "figure_lmc_complexity", "figure_mse",
+    "figure_manifold",
+    "figure_te_network",
 ]

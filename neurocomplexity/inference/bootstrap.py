@@ -42,6 +42,15 @@ def _ci_from_dist(dist: np.ndarray, level: float, observed=None):
 
     Reference: Efron B. (1987) "Better bootstrap confidence intervals."
     JASA 82(397): 171-185.
+
+    Caveats:
+      * For a component whose bootstrap replicates have ~zero variance,
+        the BC interval can degenerate to NaN. Callers receive NaN bounds
+        for that component rather than a misleadingly narrow interval.
+      * BC is applied independently per component for vector statistics.
+        That assumes component-wise bias estimates are stable; with very
+        small ``n_resamples`` (n < 30) consider increasing n or falling
+        back to the naive percentile path by passing ``observed=None``.
     """
     lo_q = (1 - level) / 2
     hi_q = (1 + level) / 2
@@ -123,7 +132,7 @@ def bootstrap_avalanche_exponents(
     def _one(s):
         rng = np.random.default_rng(s)
         idx = rng.integers(0, n_av, n_av)
-        a_s, a_t, _ = fit_avalanche_exponents(sizes[idx], lifetimes[idx], bs)
+        a_s, a_t, _gf, _r2 = fit_avalanche_exponents(sizes[idx], lifetimes[idx], bs)
         return np.array([a_s, a_t])
 
     dist = np.stack(_run(_child_seeds(seed, n), _one, n_jobs), axis=0)
@@ -174,7 +183,38 @@ def bootstrap_branching_ratio(
     block_seconds: float = 10.0,
     n_jobs: int = 1,
 ) -> InferenceResult:
-    """Block bootstrap for the Wilting-Priesemann branching ratio."""
+    """Block bootstrap for the Wilting-Priesemann branching ratio.
+
+    Resamples non-overlapping ``block_seconds`` time blocks of the
+    recording with replacement, re-runs
+    :func:`~neurocomplexity.analysis.wilting_mr` on each draw, and returns
+    a percentile (or BC) confidence interval around the observed ``m``.
+
+    Parameters
+    ----------
+    result
+        :class:`~neurocomplexity.analysis.BranchingResult` from the real
+        data — its ``params`` are reused for every bootstrap draw.
+    rec
+        The recording the result was computed on.
+    n
+        Number of bootstrap draws (default 1000).
+    seed
+        Master RNG seed.
+    ci_level
+        Confidence level (default 0.95).
+    block_seconds
+        Block length for the moving-block bootstrap (default 10 s — long
+        enough to span the autocorrelation in population activity).
+    n_jobs
+        Parallelism via joblib (default 1, serial).
+
+    Returns
+    -------
+    :class:`~neurocomplexity.inference.results.InferenceResult`
+        With ``observed = result.m``, ``bootstrap_distribution`` of length
+        ``n``, and ``ci_lower`` / ``ci_upper`` populated.
+    """
     kw = dict(result.params)
 
     def _one(s):
@@ -210,6 +250,12 @@ def bootstrap_participation_ratio(
     block_seconds: float = 1.0,
     n_jobs: int = 1,
 ) -> InferenceResult:
+    """Block bootstrap for the participation ratio.
+
+    See :func:`bootstrap_branching_ratio` for parameter semantics.
+    ``block_seconds`` defaults to 1 s here because PR is computed on
+    short-timescale (10 ms) bins and its autocorrelation is shorter.
+    """
     kw = dict(result.params)
 
     def _one(s):
@@ -244,6 +290,10 @@ def bootstrap_shape_collapse(
     block_seconds: float = 1.0,
     n_jobs: int = 1,
 ) -> InferenceResult:
+    """Block bootstrap for the Friedman shape-collapse exponent ``gamma``.
+
+    See :func:`bootstrap_branching_ratio` for parameter semantics.
+    """
     kw = dict(result.params)
 
     def _one(s):
@@ -277,6 +327,12 @@ def bootstrap_autonomy(
     block_seconds: float = 1.0,
     n_jobs: int = 1,
 ) -> InferenceResult:
+    """Block bootstrap for VAR-Granger autonomy p-values, one per population.
+
+    See :func:`bootstrap_branching_ratio` for parameter semantics. Returns
+    a vector ``observed`` with one entry per population (sorted by name),
+    matching ``ci_lower`` / ``ci_upper`` arrays of the same shape.
+    """
     kw = dict(result.params)
     keys = sorted(result.values.keys())
     obs = np.array([result.values[k] for k in keys])
@@ -317,7 +373,51 @@ def bootstrap(
     n: int = 1000, seed: int = 0, ci_level: float = 0.95,
     block_seconds=None, n_jobs: int = 1,
 ) -> InferenceResult:
-    """Bootstrap a confidence interval for an analysis result."""
+    """Bootstrap a confidence interval for an analysis result.
+
+    Unified entry-point that dispatches on the result type to the
+    appropriate per-statistic block bootstrap
+    (``bootstrap_branching_ratio``, ``bootstrap_participation_ratio``,
+    ``bootstrap_avalanche_exponents``, ``bootstrap_shape_collapse``,
+    ``bootstrap_autonomy``).
+
+    Parameters
+    ----------
+    result
+        A frozen ``*Result`` dataclass from
+        :mod:`neurocomplexity.analysis`.
+    rec
+        The recording that produced ``result``.
+    n
+        Number of bootstrap draws (default 1000).
+    seed
+        Master RNG seed.
+    ci_level
+        Confidence level (default 0.95).
+    block_seconds
+        Block length for moving-block bootstrap. If ``None``, the dispatched
+        function's default is used.
+    n_jobs
+        Parallelism via joblib (default 1, serial).
+
+    Returns
+    -------
+    :class:`~neurocomplexity.inference.results.InferenceResult`
+
+    Raises
+    ------
+    TypeError
+        If no bootstrap dispatcher exists for ``type(result)``.
+
+    Notes
+    -----
+    Confidence intervals use the BC (bias-corrected) method when an
+    ``observed`` is provided; otherwise fall back to the percentile
+    method. BC may be unstable for vector statistics whose individual
+    components have near-zero null variance — inspect
+    ``bootstrap_distribution`` and pre-screen those entries in your
+    pipeline.
+    """
     fn = _DISPATCH.get(type(result))
     if fn is None:
         raise TypeError(f"no bootstrap resampler for {type(result).__name__}")

@@ -1,3 +1,12 @@
+"""File-and-loader fingerprints attached to every recording and result.
+
+Every :class:`~neurocomplexity.core.recording.SpikeRecording` carries a
+:class:`ProvenanceRecord` ``source`` and an immutable tuple of
+``attachments`` (one per ``add_quality`` / ``add_anatomy`` / ``add_trials``
+call). Every analysis ``*Result`` keeps a back-pointer to the source. The
+CLI dumps all of that into ``results.json`` so figures are reproducible
+from the input file alone.
+"""
 from __future__ import annotations
 
 import hashlib
@@ -11,6 +20,35 @@ from neurocomplexity._version import __version__
 
 @dataclass(frozen=True)
 class ProvenanceRecord:
+    """Fingerprint of a source file or in-memory dataset.
+
+    Attributes
+    ----------
+    source_path
+        Absolute path on disk, or a ``"<memory:hint>"`` sentinel for
+        in-memory data.
+    source_format
+        Loader identifier (``"nwb"``, ``"kilosort"``, ``"phy"``,
+        ``"spikeinterface"``, ``"qc:bombcell"``, ``"anatomy:brainglobe"``,
+        ``"trials:csv"``, …).
+    source_hash
+        BLAKE2b hex digest of ``head(1 MiB) + tail(1 MiB) + filesize``.
+        Empty for in-memory records.
+    loader_version
+        Package version that performed the load.
+    package_version
+        Package version snapshot for downstream debugging.
+    loaded_at
+        ISO-8601 UTC timestamp at load time.
+
+    Class methods
+    -------------
+    for_file(path, source_format)
+        Build a record for a file on disk (computes the hash).
+    for_memory(source_format, hint="")
+        Build a record for an in-memory dataset; no hash.
+    """
+
     source_path: str
     source_format: str
     source_hash: str

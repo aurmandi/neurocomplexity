@@ -78,11 +78,13 @@ def figure_criticality(
                          x_label="Lifetime $T$ (s)", y_label="$P(T)$",
                          alpha_label=r"\alpha_t")
 
-    ax_s.text(0.98, 0.97,
-              f"$R^2={result.r_squared:.2f}$\n"
-              f"bin$={result.optimal_bin_seconds * 1e3:.1f}$ ms",
-              transform=ax_s.transAxes, ha="right", va="top",
-              fontsize=6, color=p["text"])
+    annot = (f"$R^2={result.r_squared:.2f}$\n"
+             f"bin$={result.optimal_bin_seconds * 1e3:.1f}$ ms")
+    ax_s.text(0.98, 0.97, annot, transform=ax_s.transAxes,
+              ha="right", va="top", fontsize=6, color=p["text"])
+    # Same annotation on the lifetime panel so each plot is self-describing.
+    ax_t.text(0.98, 0.97, annot, transform=ax_t.transAxes,
+              ha="right", va="top", fontsize=6, color=p["text"])
 
     _apply_panel_label(ax_s, panel_label)
     return fig

@@ -21,6 +21,29 @@ from neurocomplexity.core.recording import SpikeRecording
 
 @dataclass(frozen=True)
 class AutonomyResult:
+    """Output of :func:`autonomy`.
+
+    Attributes
+    ----------
+    values
+        Mapping ``{population_name: autonomy_p_value}``. The "autonomy index"
+        is the F-test p-value for the null hypothesis that adding the other
+        populations as predictors does *not* improve forecasting of the
+        target population beyond its own past. Higher p (closer to 1)
+        → the population is more autonomous (externals do not help).
+    bin_size_seconds
+        Bin size used to turn spikes into population-count series.
+    max_lag
+        Maximum VAR lag considered. The actual lag is chosen by BIC up to
+        this cap (minimum 1).
+    source
+        Back-pointer to the :class:`~neurocomplexity.core.provenance.ProvenanceRecord`
+        of the source recording.
+    params
+        Verbatim copy of the keyword arguments passed to :func:`autonomy`,
+        for reproducibility.
+    """
+
     values: dict[str, float]
     bin_size_seconds: float
     max_lag: int

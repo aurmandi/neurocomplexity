@@ -121,6 +121,20 @@ def interval_shuffle(
     trials = rec.intervals[intervals_name].sort_values("start_time").reset_index(drop=True)
     starts = trials["start_time"].to_numpy()
     stops = trials["stop_time"].to_numpy()
+    # Reject overlapping intervals: a spike inside two windows would otherwise
+    # be reassigned twice, silently corrupting the surrogate. Tolerance of 1 us
+    # to absorb float noise from NWB timestamps.
+    if starts.size > 1:
+        overlap = stops[:-1] - starts[1:]
+        worst = float(overlap.max()) if overlap.size else 0.0
+        if worst > 1e-6:
+            bad = int(np.argmax(overlap))
+            raise ValueError(
+                f"interval_shuffle requires non-overlapping intervals; "
+                f"interval {bad} stops at {stops[bad]:.6f}s but interval "
+                f"{bad+1} starts at {starts[bad+1]:.6f}s "
+                f"(overlap = {worst*1e3:.3f} ms)"
+            )
     durs_round = np.round(stops - starts, 6)
 
     groups: dict[float, np.ndarray] = {

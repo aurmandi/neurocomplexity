@@ -15,6 +15,14 @@ def figure_pid(
     figsize: tuple[float, float] | None = None,
     ax=None,
 ):
+    """Render Williams-Beer PID atoms as a labelled bar.
+
+    Bars in canonical order: redundancy, unique source 1, unique source 2,
+    synergy. Source names are read from ``result.sources``.
+
+    See :func:`~neurocomplexity.viz.branching.figure_branching` for shared
+    keyword arguments.
+    """
     p, fig, ax = _resolve_palette_and_axes(
         palette=palette, ax=ax, figsize=figsize, default_size=(3.6, 2.7),
     )
@@ -30,9 +38,13 @@ def figure_pid(
     ax.set_xticklabels(labels, fontsize=6)
     ax.set_ylabel(f"Information about {result.target} (nats)")
     ymax = max(vals.max(), 1e-12)
-    ax.set_ylim(0, ymax * 1.25)
+    # Headroom for value labels at the top + the corner stats annotation.
+    ax.set_ylim(0, ymax * 1.4)
     for xi, v in zip(x, vals):
-        ax.text(xi, v + ymax * 0.03, f"{v:.4f}",
+        # Print "≈ 0" for atoms that round to zero so the reader knows the
+        # bar isn't missing — it's empty by computation.
+        txt = "≈ 0" if abs(v) < ymax * 1e-3 else f"{v:.4f}"
+        ax.text(xi, v + ymax * 0.04, txt,
                 ha="center", va="bottom", fontsize=5.5,
                 color=p["text"])
     ax.text(0.98, 0.97,

@@ -30,6 +30,50 @@ from neurocomplexity.core.recording import SpikeRecording
 
 @dataclass(frozen=True)
 class StationarityResult:
+    """Output of :func:`stationarity`.
+
+    Attributes
+    ----------
+    population_rate_cv
+        Coefficient of variation (std / mean) of the windowed population
+        rate. Values much greater than ~0.5 indicate the rate is not
+        stationary at the chosen window scale.
+    rate_drift_slope
+        OLS slope of windowed population rate (Hz) versus window centre
+        (s). Positive = rate increases over the recording.
+    rate_drift_pvalue
+        Two-sided slope-vs-zero p-value. ``p < 0.01`` → significant drift.
+    cv2_mean
+        Mean across units of the local-ISI CV2 (Holt et al. 1996).
+        CV2 close to 1 → Poisson-like firing; close to 0 → very regular.
+    rolling_var_ratio
+        Ratio ``max(window variance) / min(window variance)`` of windowed
+        population rate. Values much greater than 1 indicate
+        heteroskedasticity.
+    n_windows
+        Number of windows used.
+    window_s
+        Window length in seconds.
+    params
+        Verbatim copy of the keyword arguments passed to :func:`stationarity`.
+    is_stationary
+        ``True`` iff every diagnostic is within its acceptance threshold.
+    flags
+        Tuple of human-readable strings listing any threshold breaches.
+        Empty when ``is_stationary`` is ``True``.
+
+    Notes
+    -----
+    Used internally by the analysis layer:
+    :func:`~neurocomplexity.analysis.criticality`,
+    :func:`~neurocomplexity.analysis.wilting_mr`,
+    :func:`~neurocomplexity.analysis.transfer_entropy`,
+    :func:`~neurocomplexity.analysis.shape_collapse` and
+    :func:`~neurocomplexity.analysis.multiscale_entropy` emit a
+    :class:`~neurocomplexity._warnings.StationarityWarning` when this
+    diagnostic flags the recording.
+    """
+
     population_rate_cv: float
     rate_drift_slope: float
     rate_drift_pvalue: float

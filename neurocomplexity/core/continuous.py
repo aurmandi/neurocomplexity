@@ -19,6 +19,37 @@ import numpy as np
 
 @dataclass(frozen=True)
 class ContinuousSignal:
+    """Uniformly-sampled 1-D continuous signal.
+
+    Attach to a recording with
+    :meth:`SpikeRecording.with_signal <neurocomplexity.core.recording.SpikeRecording.with_signal>`,
+    then pass via ``signals=...`` to
+    :func:`~neurocomplexity.analysis.transfer_entropy` or
+    :func:`~neurocomplexity.analysis.partial_information`. They are
+    discretised via binary median split for the binary-Schreiber TE and
+    via quantile bins for PID.
+
+    Attributes
+    ----------
+    values
+        1-D ``float64`` sample vector. Must be finite and non-empty.
+    sampling_rate
+        Samples per second. Must be strictly positive.
+    t_start
+        Time of sample 0 in seconds (default 0).
+    label
+        Human-readable label (e.g. ``"pupil_diameter"``).
+    units
+        Physical units (e.g. ``"mm"``, ``"deg/s"``).
+
+    Notes
+    -----
+    Sample ``i`` occurs at time ``t_start + i / sampling_rate`` seconds.
+    For non-uniformly-sampled streams (eye-tracking with dropped frames,
+    photometry with variable exposure), resample to a fixed rate first;
+    only uniform sampling is supported in v1.
+    """
+
     values: np.ndarray
     sampling_rate: float
     t_start: float = 0.0

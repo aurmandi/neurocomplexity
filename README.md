@@ -17,26 +17,73 @@ notebooks every time.
 
 ## What's actually in it
 
-Five analyses, each implemented as a single function that returns a frozen
-dataclass:
+**Criticality & dynamics**
 
-- `criticality` — avalanche size and lifetime exponents (alpha_s, alpha_t),
-  the kappa index, and the bin size that maximises the goodness-of-fit of the
-  size–lifetime scaling.
-- `wilting_mr` — the Wilting & Priesemann (2018) multi-step regression
-  branching ratio, robust to subsampling.
+- `criticality` — avalanche size and lifetime exponents (`alpha_s`,
+  `alpha_t`), the `kappa` index, the scaling exponent `gamma_fit` from the
+  size–lifetime regression, and the theoretically-predicted
+  `gamma_predicted = (alpha_t - 1) / (alpha_s - 1)` for a Sethna (2001)
+  crackling-noise consistency test. The α_t exponent is fit directly to the
+  lifetime distribution P(T), not derived from the regression slope.
+- `wilting_mr` — Wilting & Priesemann (2018) multi-step regression branching
+  ratio, robust to subsampling.
 - `shape_collapse` — Friedman et al. (2012) avalanche shape collapse, with a
-  scale-invariant residual and a bounded continuous optimiser for gamma.
+  scale-invariant residual and a bounded continuous optimiser for γ.
+
+**Complexity & geometry**
+
 - `dimensionality` — participation ratio on the per-unit correlation matrix.
+- `manifold` — population-state embedding (PCA / UMAP / t-SNE) for the
+  geometry of neural trajectories (Cunningham & Yu 2014, Gallego et al. 2018).
+- `multiscale_entropy` — Costa, Goldberger, Peng (2002) MSE on
+  population-rate series, built on Richman & Moorman (2000) sample entropy.
+- `lmc_complexity` — López-Ruiz, Mancini, Calbet (1995) statistical
+  complexity `C = H · D`. See
+  [`docs/complexity_measures.md`](docs/complexity_measures.md) for when to
+  use LMC vs MSE — they answer different questions.
+
+**Information flow**
+
+- `transfer_entropy` — binary Schreiber TE with Miller-Madow correction;
+  significance via `inference.test` against jitter / ISI-shuffle nulls.
 - `partial_information` — Williams–Beer I_min PID with quantile multi-level
   discretisation and Miller–Madow bias correction.
+- `autonomy` — VAR-Granger self-predictability index.
 
-Plus `transfer_entropy` (binary Schreiber + Miller-Madow), `autonomy`
-(VAR-Granger), and `surrogate_test` (jitter and ISI-shuffle).
+**Inference**
 
-A small `viz` module renders each of these as a Nature-style figure (editable
-PDF/SVG, Arial 7 pt, no top/right spines), and a CLI wraps the whole pipeline
-so you can run it from a terminal.
+Every analysis works with the unified `inference.test(result, rec,
+surrogate=..., alternative=...)` API. Surrogates: jitter (uniform dithering
+with optional refractory repair), ISI shuffle, and interval shuffle (now
+validates non-overlap to prevent silent corruption). P-values use the
+Phipson & Smyth (2010) +1 floor; the two-sided test is the conventional
+`2 · min(p_greater, p_less)` clipped at 1 (robust to skewed null
+distributions, unlike a mean-centred form). FDR via Benjamini–Hochberg.
+Confidence intervals via percentile or BC bootstrap.
+
+**Visualisation**
+
+`viz` renders every result as a Nature-style figure (editable SVG/TIFF/JPG,
+Arial 7 pt, no top/right spines, three named palettes). `figure_panel`
+composes labelled multi-panel figures with automatic layout. A CLI wraps
+the whole pipeline so you can run it from a terminal.
+
+**Ingestion**
+
+NWB, KiloSort/Phy, SpikeInterface. Helpers: `add_quality` (Bombcell
+auto-detection, SpikeInterface metrics, threshold-based curation),
+`add_anatomy` (Brainglobe lookups, CSV, SHARP-Track `.mat`), `add_trials`
+(CSV/TSV/NWB), `merge_probes` (multi-probe sessions).
+
+## Scope
+
+Primary target: **spike-sorted extracellular recordings**. Continuous-signal
+support (LFP / calcium) is provided via
+`neurocomplexity.analysis._continuous` for cases where you want to apply the
+same measure (TE, MSE, stationarity) to a non-spike trace from the same
+recording — not as a full LFP toolbox. For that, use
+[`mne-python`](https://mne.tools) or
+[`elephant`](https://elephant.readthedocs.io).
 
 ## Installing
 

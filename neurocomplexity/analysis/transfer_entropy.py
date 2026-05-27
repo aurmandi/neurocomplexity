@@ -17,6 +17,36 @@ from neurocomplexity.core.recording import SpikeRecording
 
 @dataclass(frozen=True)
 class TransferEntropyResult:
+    """Output of :func:`transfer_entropy`.
+
+    Attributes
+    ----------
+    matrix
+        ``(P, P)`` pairwise transfer-entropy matrix in **nats**. Convention:
+        ``matrix[i, j]`` = TE from population ``i`` (source, row) to
+        population ``j`` (target, column). Diagonal is zero. Estimator is
+        Schreiber (2000) on binary-thresholded counts with Miller-Madow
+        bias correction.
+    populations
+        Population names, in the order they index ``matrix``.
+    bin_size_seconds
+        Bin size used to discretise spike counts.
+    delay_bins
+        Lag in bins between source past and target future (default 1).
+    source
+        Provenance back-pointer.
+    params
+        Verbatim copy of the keyword arguments passed to
+        :func:`transfer_entropy`.
+
+    Notes
+    -----
+    Significance is assessed via :func:`neurocomplexity.inference.test`,
+    typically with ``surrogate="spike_dither"`` or
+    ``surrogate="isi_shuffle"``. FDR correction across the off-diagonal
+    entries is applied automatically when ``fdr=True``.
+    """
+
     matrix: np.ndarray       # (P, P) TE in nats; row=source, col=target
     populations: tuple[str, ...]
     bin_size_seconds: float

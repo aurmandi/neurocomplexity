@@ -20,6 +20,26 @@ We use the Phipson & Smyth (2010) +1 correction:
 Benjamini-Hochberg FDR correction across entries when `fdr=True`
 (the default).
 
+### Alternatives
+
+`pvalue_from_null(..., alternative=...)` accepts:
+
+- `"greater"` (default) — right-tail, ``(1 + #{null >= obs}) / (1 + n)``.
+- `"less"` — left-tail, ``(1 + #{null <= obs}) / (1 + n)``.
+- `"two-sided"` — `2 * min(p_greater, p_less)` clipped at 1.
+
+The two-sided form is robust to skewed null distributions; an older
+mean-centred `|null - mean| >= |obs - mean|` formulation under-powers when
+the null is asymmetric and is no longer used.
+
+### Interval overlap safety
+
+`interval_shuffle` will raise a `ValueError` if any two intervals on the
+named table overlap (tolerance: 1 µs). Touching intervals
+(`stop[i] == start[i+1]`) are allowed. This guards against a silent
+corruption mode where a spike inside two overlapping windows would be
+reassigned twice.
+
 ## Bootstrap
 
 | Result | Resampling unit | Default block |

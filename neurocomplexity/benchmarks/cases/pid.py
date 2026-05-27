@@ -75,24 +75,29 @@ def _run_one(distribution: str, n_reps: int, seed: int) -> BenchmarkResult:
 
 @register("pid.atoms_xor")
 def bench_atoms_xor(n_reps: int = 50, seed: int = 0) -> BenchmarkResult:
+    """XOR distribution: pure synergy, ``S = ln 2`` nats; all other atoms zero."""
     return _run_one("xor", n_reps, seed)
 
 
 @register("pid.atoms_and")
 def bench_atoms_and(n_reps: int = 50, seed: int = 0) -> BenchmarkResult:
+    """AND distribution: redundancy ``≈ 0.216`` nats, synergy ``≈ 0.347`` nats."""
     return _run_one("and", n_reps, seed)
 
 
 @register("pid.atoms_copy")
 def bench_atoms_copy(n_reps: int = 50, seed: int = 0) -> BenchmarkResult:
+    """COPY (``t = s1``) — pure unique information from source 1: ``U1 = ln 2``."""
     return _run_one("copy", n_reps, seed)
 
 
 @register("pid.atoms_rdn")
 def bench_atoms_rdn(n_reps: int = 50, seed: int = 0) -> BenchmarkResult:
+    """RDN distribution: pure redundancy, ``R = ln 2`` nats."""
     return _run_one("rdn", n_reps, seed)
 
 
 @register("pid.atoms_unq")
 def bench_atoms_unq(n_reps: int = 50, seed: int = 0) -> BenchmarkResult:
+    """UNQ distribution: pure unique information from source 1, ``U1 = ln 2``."""
     return _run_one("unq", n_reps, seed)

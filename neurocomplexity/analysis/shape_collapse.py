@@ -21,6 +21,42 @@ from neurocomplexity.core.recording import SpikeRecording
 
 @dataclass(frozen=True)
 class ShapeCollapseResult:
+    """Output of :func:`shape_collapse` (Friedman et al. 2012).
+
+    Attributes
+    ----------
+    gamma
+        Optimal scaling exponent. The hypothesis is
+        ``a(t, T) ~ T^(gamma - 1) * F(t / T)`` — one universal scaling
+        function ``F`` and one exponent. At criticality, ``gamma`` matches
+        ``gamma_predicted`` from :func:`criticality`.
+    residual
+        Scale-invariant collapse residual at the optimal ``gamma``. Lower is
+        better; values much greater than the noise floor (~ 0.05 for typical
+        recordings) indicate that no single ``gamma`` collapses the shapes —
+        evidence against critical scaling.
+    durations_used
+        ``int64`` array of avalanche durations (in bins) used to compute
+        mean shapes. Only duration classes with ``>= min_count`` samples are
+        kept.
+    mean_shapes
+        List of mean shape curves, one per duration in ``durations_used``.
+        Each entry is a 1-D ``float64`` array of length equal to that
+        duration.
+    rescaled_x, rescaled_y
+        Concatenated rescaled curves at the optimal ``gamma`` for plotting:
+        ``rescaled_x = t / T``, ``rescaled_y = a(t, T) / T^(gamma - 1)``.
+    bin_size_seconds
+        Bin size used to extract avalanches.
+    populations
+        Populations whose union was binned.
+    source
+        Provenance back-pointer.
+    params
+        Verbatim copy of the keyword arguments passed to
+        :func:`shape_collapse`.
+    """
+
     gamma: float
     residual: float
     durations_used: np.ndarray
@@ -62,6 +98,53 @@ def shape_collapse(rec: SpikeRecording,
                    n_gamma_seed: int = 41,
                    n_interp: int = 50,
                    ) -> ShapeCollapseResult:
+    """Avalanche shape collapse (Friedman et al. 2012).
+
+    Bins the union of ``populations`` at ``bin_size_ms``, extracts avalanche
+    shape curves ``a(t, T)``, groups them by duration ``T``, and finds the
+    exponent ``gamma`` that minimises the scale-invariant residual between
+    the rescaled curves ``a(t, T) / T^(gamma - 1)`` interpolated onto a
+    common ``t / T`` grid.
+
+    A grid pre-scan of ``n_gamma_seed`` values seeds a bounded continuous
+    optimiser (``scipy.optimize.minimize_scalar``).
+
+    Parameters
+    ----------
+    rec
+        Spike recording.
+    populations
+        Populations to bin. ``None`` → all.
+    bin_size_ms
+        Bin size in milliseconds (default 4 ms).
+    min_duration, max_duration
+        Inclusive range of avalanche durations (in bins) to use. Duration
+        classes with fewer than 5 samples are skipped.
+    gamma_range
+        ``(low, high)`` bracket for the optimiser.
+    n_gamma_seed
+        Number of seed gammas in the pre-scan grid.
+    n_interp
+        Length of the common ``t / T`` interpolation grid.
+
+    Returns
+    -------
+    :class:`ShapeCollapseResult`
+
+    Raises
+    ------
+    ValueError
+        If no avalanches are detected, or fewer than 2 duration classes have
+        enough samples for collapse.
+
+    Emits :class:`~neurocomplexity._warnings.QualityControlWarning` /
+    :class:`~neurocomplexity._warnings.StationarityWarning` as appropriate.
+
+    References
+    ----------
+    * Friedman N et al. (2012). *Universal critical dynamics in high
+      resolution neuronal avalanche data.* Phys Rev Lett 108:208102.
+    """
     from neurocomplexity._warnings import _warn_if_uncurated, _warn_if_nonstationary
     _warn_if_uncurated(rec, "shape_collapse")
     _warn_if_nonstationary(rec, "shape_collapse")

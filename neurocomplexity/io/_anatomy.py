@@ -94,6 +94,47 @@ def add_anatomy(
     *,
     format: FormatLiteral = "auto",
 ) -> SpikeRecording:
+    """Attach per-unit anatomical labels to a recording.
+
+    Reads a CSV / TSV / ``.mat`` file produced by a track-reconstruction
+    tool, normalises its columns, and joins it onto the recording's
+    :class:`~pandas.DataFrame` of unit metadata by unit id. Returns a new
+    immutable recording.
+
+    Parameters
+    ----------
+    rec
+        Recording to enrich.
+    path
+        Path to the anatomy file.
+    format
+        ``"auto"`` (default; sniffs the columns), or one of:
+
+        * ``"brainglobe"`` — Brainglobe ``probes.csv`` output (``unit_id``,
+          ``acronym``, ``brain_region``, hierarchical region columns).
+        * ``"pinpoint"`` — Pinpoint exporter (uses ``label`` column).
+        * ``"sharptrack"`` — SHARP-Track MATLAB ``.mat`` reconstruction;
+          delegated to :func:`load_sharptrack`.
+        * ``"csv"`` — Generic two-column table with ``unit_id`` and either
+          ``brain_area`` or ``area`` / ``region``.
+
+    Returns
+    -------
+    :class:`~neurocomplexity.core.recording.SpikeRecording`
+        New recording with ``brain_area`` (and any extra anatomy columns)
+        joined onto ``units``.
+
+    Raises
+    ------
+    ValueError
+        If the file extension is unsupported, the format cannot be
+        auto-detected, or a required column is missing.
+
+    See Also
+    --------
+    add_quality : attach unit-quality labels.
+    add_trials : attach behavioural trial intervals.
+    """
     path = Path(path)
     raw, format_after_load = _load_anatomy_table(path, format)
 

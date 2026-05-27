@@ -25,6 +25,48 @@ log = logging.getLogger(__name__)
 
 
 def from_nwb(path: str | Path) -> SpikeRecording:
+    """Load a spike-sorted recording from a Neurodata Without Borders file.
+
+    Tries a fast round-trip path first (when the NWB file was written by
+    :func:`~neurocomplexity.io._ndx.to_nwb`) and otherwise falls back to a
+    best-effort reader against the standard NWB Units table.
+
+    Parameters
+    ----------
+    path
+        Path to a ``.nwb`` file (HDF5 backend).
+
+    Returns
+    -------
+    :class:`~neurocomplexity.core.recording.SpikeRecording`
+        With ``spike_times`` in seconds, ``unit_ids`` as ``int64``, and
+        ``units`` carrying every scalar column from the Units table. If
+        ``electrodes.location`` is present and joinable via
+        ``units.peak_channel_id``, it is exposed as the ``brain_area``
+        column.
+
+    Raises
+    ------
+    FileNotFoundError
+        If ``path`` does not exist.
+    ImportError
+        If ``pynwb`` is not installed. Install via
+        ``pip install 'neurocomplexity[nwb]'``.
+    NWBSchemaError
+        If the file has no ``Units`` table (e.g. ophys/calcium data —
+        not supported in v0.1).
+
+    Notes
+    -----
+    The session ``duration`` is read from ``session_start_time`` /
+    spike-times tail (``max(spike_times) + 1 s``) — NWB has no session
+    length field, so this is a safe over-approximation.
+
+    For memory-bounded loading of a sub-interval, see
+    ``examples/integration_session_715093703_light.py`` which uses
+    ``pynwb`` + ``h5py`` directly to read only the requested time window
+    and unit subset.
+    """
     try:
         import pynwb  # noqa: F401  (heavy optional dep)
     except ImportError as exc:

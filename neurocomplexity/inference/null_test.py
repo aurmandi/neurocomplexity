@@ -19,28 +19,71 @@ except ImportError:
 def pvalue_from_null(observed, null, *, alternative: str = "greater"):
     """Permutation p-value with Phipson-Smyth +1 floor.
 
-    `null` is shape (n,) for scalar `observed`, or (n, *obs.shape) for arrays.
+    Parameters
+    ----------
+    observed
+        Scalar or array; matches the trailing shape of ``null``.
+    null
+        Shape (n,) for scalar ``observed`` or (n, *obs.shape) for array.
+    alternative
+        ``"greater"`` (default) — right-tail.
+        ``"less"`` — left-tail.
+        ``"two-sided"`` — robust to skewed nulls: ``2 * min(p_greater, p_less)``
+        with each tail floored at ``1/(n+1)`` (Phipson & Smyth 2010) and the
+        final value clipped to 1. Avoids the mean-centred ``|null - mu|``
+        formulation which under-powers for asymmetric null distributions.
     """
     null = np.asarray(null)
     obs = np.asarray(observed)
     n = null.shape[0]
-    if alternative == "greater":
+
+    def _p_greater():
         if obs.ndim:
             ge = np.sum(null >= obs[None, ...], axis=0)
         else:
             ge = np.sum(null >= obs, axis=0)
         return (1.0 + ge) / (1.0 + n)
-    if alternative == "two-sided":
-        mu = np.nanmean(null, axis=0)
+
+    def _p_less():
         if obs.ndim:
-            more = np.sum(np.abs(null - mu[None, ...]) >= np.abs(obs - mu)[None, ...], axis=0)
+            le = np.sum(null <= obs[None, ...], axis=0)
         else:
-            more = np.sum(np.abs(null - mu) >= np.abs(obs - mu), axis=0)
-        return (1.0 + more) / (1.0 + n)
-    raise ValueError(f"alternative must be 'greater' or 'two-sided', got {alternative!r}")
+            le = np.sum(null <= obs, axis=0)
+        return (1.0 + le) / (1.0 + n)
+
+    if alternative == "greater":
+        return _p_greater()
+    if alternative == "less":
+        return _p_less()
+    if alternative == "two-sided":
+        pg = _p_greater()
+        pl = _p_less()
+        return np.minimum(1.0, 2.0 * np.minimum(pg, pl))
+    raise ValueError(
+        f"alternative must be 'greater', 'less', or 'two-sided', got {alternative!r}"
+    )
 
 
 def effect_size(observed, null):
+    """Standardised effect size of ``observed`` against the null distribution.
+
+    Returns ``z = (observed - mean(null)) / std(null)`` (sample SD,
+    ``ddof=1``) element-wise. Entries where ``std(null) == 0`` are
+    returned as ``nan`` rather than ``inf``.
+
+    Parameters
+    ----------
+    observed
+        Scalar or array.
+    null
+        Null distribution. Shape ``(n,)`` for scalar ``observed`` or
+        ``(n, *observed.shape)`` for array.
+
+    Returns
+    -------
+    float or ndarray
+        Same shape as ``observed``.
+    """
     null = np.asarray(null)
     mu = np.nanmean(null, axis=0)
     sd = np.nanstd(null, axis=0, ddof=1)

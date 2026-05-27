@@ -86,8 +86,9 @@ def bench_avalanche_exponents(n_reps: int = 50, seed: int = 0) -> BenchmarkResul
         result = criticality(rec, populations=["all"], bin_size_ms=(4.0,))
         if not np.isnan(result.alpha_s):
             alpha_ss.append(result.alpha_s)
-        # Direct duration-tail fit (Friedman 2012 tau); criticality()'s
-        # alpha_t is the gamma scaling exponent, which is noisier.
+        # Cross-check duration-tail fit (Friedman 2012 tau). Since the
+        # alpha_t bug-fix this should agree with result.alpha_t up to
+        # numerical noise.
         lifetimes_in_bins = result.lifetimes / result.optimal_bin_seconds
         tau = fit_alpha(lifetimes_in_bins, xmin=1)
         if not np.isnan(tau):

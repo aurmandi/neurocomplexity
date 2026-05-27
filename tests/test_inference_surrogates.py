@@ -1,3 +1,5 @@
+from dataclasses import replace as dc_replace
+
 import numpy as np
 import pytest
 import pandas as pd
@@ -117,3 +119,31 @@ def test_interval_shuffle_requires_named_table():
     rec = _rec_with_intervals()
     with pytest.raises(KeyError):
         interval_shuffle(rec, "nope", seed=0)
+
+
+def test_interval_shuffle_rejects_overlapping_intervals():
+    """Overlap would silently re-assign the same spike twice."""
+    rec = _rec_with_intervals()
+    df = rec.intervals["trials"].copy()
+    # Extend interval 5 past start of interval 6 by 20 ms
+    j_stop = df.columns.get_loc("stop_time")
+    j_start = df.columns.get_loc("start_time")
+    df.iloc[5, j_stop] = df.iloc[6, j_start] + 0.02
+    rec_bad = dc_replace(rec, intervals={"trials": df})
+    with pytest.raises(ValueError, match="non-overlapping"):
+        interval_shuffle(rec_bad, "trials", seed=0)
+
+
+def test_interval_shuffle_accepts_touching_intervals():
+    """Back-to-back intervals (stop[i] == start[i+1]) must NOT raise."""
+    rec = _rec_with_intervals()
+    df = rec.intervals["trials"].copy()
+    starts = np.arange(len(df)) * 1.0
+    df["start_time"] = starts
+    df["stop_time"] = starts + 1.0
+    rec_touch = dc_replace(rec, intervals={"trials": df},
+                           duration=float(df["stop_time"].iloc[-1] + 0.1))
+    surr = interval_shuffle(rec_touch, "trials", seed=0)
+    assert surr is not None
+
+

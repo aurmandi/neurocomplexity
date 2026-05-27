@@ -1,3 +1,13 @@
+"""Immutable spike-recording container.
+
+The :class:`SpikeRecording` is the central data object: every loader
+returns one, every analysis takes one. It is a frozen dataclass with
+strict invariants and a small set of builder methods
+(``filter_units``, ``with_populations``, ``crop``, ``merge_probes``,
+``with_attachment``) that return *new* recordings rather than mutating
+the original. This makes recordings safe to share between threads and
+trivially cacheable.
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace

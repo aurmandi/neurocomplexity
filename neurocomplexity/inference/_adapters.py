@@ -20,10 +20,16 @@ from neurocomplexity.analysis.dimensionality import (
     dimensionality, DimensionalityResult,
 )
 from neurocomplexity.analysis.autonomy import autonomy, AutonomyResult
+from neurocomplexity.analysis.complexity import lmc_complexity, LMCResult
+from neurocomplexity.analysis.mse import multiscale_entropy, MSEResult
 
 
 class AdapterError(TypeError):
-    """Raised when no adapter is registered for a result type."""
+    """Raised when no inference adapter is registered for a result type.
+
+    A subclass of :class:`TypeError` so existing code that catches the
+    latter continues to work.
+    """
 
 
 def _te_adapter(result: TransferEntropyResult) -> Callable[[Any], np.ndarray]:
@@ -79,8 +85,24 @@ def _autonomy_adapter(result: AutonomyResult) -> Callable[[Any], np.ndarray]:
     return f
 
 
+def _lmc_adapter(result: LMCResult) -> Callable[[Any], np.ndarray]:
+    kw = dict(result.params)
+    def f(rec):
+        return np.asarray(lmc_complexity(rec, **kw).C_per_pop, dtype=float)
+    return f
+
+
+def _mse_adapter(result: MSEResult) -> Callable[[Any], np.ndarray]:
+    kw = dict(result.params)
+    def f(rec):
+        return np.asarray(multiscale_entropy(rec, **kw).sampen, dtype=float)
+    return f
+
+
 _REGISTRY = {
     TransferEntropyResult: _te_adapter,
+    LMCResult: _lmc_adapter,
+    MSEResult: _mse_adapter,
     PIDResult: _pid_adapter,
     BranchingResult: _branching_adapter,
     CriticalityResult: _crit_adapter,
@@ -91,6 +113,17 @@ _REGISTRY = {
 
 
 def adapter_for(result) -> Callable[[Any], Any]:
+    """Return a callable ``f(rec) -> array_or_float`` that recomputes the
+    statistic carried by ``result`` on any surrogate recording.
+
+    The returned function captures the original ``params`` so the surrogate
+    statistic is evaluated under identical conditions.
+
+    Raises
+    ------
+    AdapterError
+        If no adapter is registered for ``type(result)``.
+    """
     fn = _REGISTRY.get(type(result))
     if fn is None:
         raise AdapterError(f"no inference adapter for {type(result).__name__}")
@@ -114,4 +147,8 @@ def observed_statistic(result) -> Any:
     if isinstance(result, AutonomyResult):
         keys = sorted(result.values.keys())
         return np.array([result.values[k] for k in keys])
+    if isinstance(result, LMCResult):
+        return np.asarray(result.C_per_pop, dtype=float)
+    if isinstance(result, MSEResult):
+        return np.asarray(result.sampen, dtype=float)
     raise AdapterError(f"no observed_statistic for {type(result).__name__}")

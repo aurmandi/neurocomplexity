@@ -16,6 +16,30 @@ from neurocomplexity.core.recording import SpikeRecording
 
 @dataclass(frozen=True)
 class DimensionalityResult:
+    """Output of :func:`dimensionality`.
+
+    Attributes
+    ----------
+    participation_ratio
+        ``PR = (sum lambda_i)^2 / sum(lambda_i^2)`` of the per-unit
+        correlation-matrix eigenvalues. Bounded in ``[1, n_units]``.
+
+        * ``PR ≈ n_units`` — isotropic, full-rank activity.
+        * ``PR ≈ 1`` — one dominant collective mode (e.g. global up-state).
+    eigenvalues
+        Sorted-descending eigenvalues of the per-unit correlation matrix.
+    n_units
+        Number of units pooled (after dropping zero-variance units).
+    bin_size_seconds
+        Bin size used to compute spike-count vectors.
+    populations
+        Populations whose units were pooled.
+    source
+        Provenance back-pointer.
+    params
+        Verbatim copy of the keyword arguments passed to :func:`dimensionality`.
+    """
+
     participation_ratio: float
     eigenvalues: np.ndarray   # descending
     n_units: int

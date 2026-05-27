@@ -91,6 +91,11 @@ def _load_recording(path: Path, *, qualities, start, end, drop_unassigned):
 # ---------------------------------------------------------------------------
 
 def cmd_info(args):
+    """``neurocomplexity info <nwb>`` — print a short recording summary.
+
+    Loads the file via :func:`~neurocomplexity.io.from_nwb`, prints
+    duration, unit-quality counts and population sizes. No analyses run.
+    """
     import neurocomplexity as nc
     rec = nc.io.from_nwb(Path(args.nwb)).with_populations(
         by="brain_area", on_unassigned="other")
@@ -183,6 +188,17 @@ def _run_analyses(rec, args):
 
 
 def cmd_analyze(args):
+    """``neurocomplexity analyze <nwb> -o <dir>`` — full pipeline.
+
+    Loads the recording, optionally crops it (``--start`` / ``--end``),
+    filters by unit quality (``--quality``), restricts to a target
+    population (``--target``) and chosen source populations
+    (``--sources``), runs every analysis whose dependencies are met, and
+    writes ``results.json`` plus per-analysis figures (SVG / PDF / PNG)
+    into ``--output``.
+
+    Run ``neurocomplexity analyze --help`` for the full flag list.
+    """
     outdir = Path(args.output)
     outdir.mkdir(parents=True, exist_ok=True)
 
@@ -282,6 +298,12 @@ def _rebuild(name, d):
 
 
 def cmd_figure(args):
+    """``neurocomplexity figure <results.json> -o <dir>`` — re-render figures.
+
+    Rebuilds result dataclasses from the JSON written by
+    :func:`cmd_analyze` and re-renders every panel without re-loading the
+    NWB or recomputing any statistic. Useful when iterating on styling.
+    """
     import matplotlib
     matplotlib.use("Agg")
     from neurocomplexity import viz
@@ -349,6 +371,15 @@ def _add_common_analysis_args(p):
 
 
 def build_parser():
+    """Construct the ``argparse`` parser for the CLI.
+
+    Exposed so external tools (tests, doc builders, completion plugins) can
+    introspect the available flags without invoking :func:`main`.
+
+    Returns
+    -------
+    argparse.ArgumentParser
+    """
     p = argparse.ArgumentParser(
         prog="neurocomplexity",
         description="Criticality, branching, shape collapse, dimensionality, "
@@ -399,6 +430,12 @@ def build_parser():
 
 
 def cmd_benchmark(args) -> int:
+    """``neurocomplexity benchmark`` — run benchmark cases against ground truth.
+
+    Selects cases via ``--case`` (repeatable, default = all), runs them at
+    ``--reps`` reps with the given ``--seed``, and writes a CSV summary
+    to ``--out`` or stdout.
+    """
     from neurocomplexity.benchmarks import run_all
     df = run_all(
         cases=args.case, n_reps=args.reps, seed=args.seed, verbose=True,
@@ -412,6 +449,13 @@ def cmd_benchmark(args) -> int:
 
 
 def main(argv=None):
+    """Entry point for ``python -m neurocomplexity`` and the
+    ``neurocomplexity`` console script.
+
+    Parses ``argv`` (or ``sys.argv[1:]``) and dispatches to the
+    appropriate subcommand. Returns the subcommand's exit code (0 on
+    success).
+    """
     parser = build_parser()
     args = parser.parse_args(argv)
     return args.func(args)

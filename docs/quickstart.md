@@ -47,18 +47,70 @@ The SpikeInterface bridge is a soft dependency — install with
 
 ## Run an analysis
 
+Every analysis returns a frozen dataclass that carries the numeric output
+**and** the parameters used. Top-level names are re-exported on the package
+root.
+
 ```python
+# Branching ratio
 m = nc.wilting_mr(rec, populations=["all"], bin_size_ms=4)
 print(f"m_hat = {m.m:.3f}, R^2 = {m.r_squared:.3f}")
+
+# Criticality exponents (with Sethna consistency)
+c = nc.criticality(rec, populations=["VISp"])
+print(f"alpha_s={c.alpha_s:.2f}, alpha_t={c.alpha_t:.2f}, "
+      f"gamma_pred={c.gamma_predicted:.2f}, gamma_fit={c.gamma_fit:.2f}")
+
+# Effective connectivity
+te = nc.transfer_entropy(rec, populations=["VISp", "LGd", "CA1"], bin_size_ms=10)
+
+# Geometry
+pr = nc.dimensionality(rec, populations=["VISp"], bin_size_ms=10)
+mfd = nc.analysis.manifold(rec, populations=["VISp"], method="pca", dims=2)
+
+# Complexity
+mse = nc.analysis.multiscale_entropy(rec, populations=["VISp"])
+lmc = nc.analysis.lmc_complexity(rec, populations=["VISp"], bin_size_s=0.05)
 ```
+
+See [`complexity_measures.md`](complexity_measures.md) for when to use
+``multiscale_entropy`` vs ``lmc_complexity``.
 
 ## Add inference
 
+**Bootstrap confidence intervals** — block bootstrap over time, per analysis:
+
 ```python
 from neurocomplexity.inference import bootstrap
-ci = bootstrap(m, rec, n=200, block_seconds=5.0, seed=0)
+ci = bootstrap(m, rec, n=1000, block_seconds=10.0, seed=0)
 print(f"95% CI: [{ci.ci_lower:.3f}, {ci.ci_upper:.3f}]")
 ```
+
+**Surrogate null tests** — Phipson-Smyth-floored p-values with optional
+Benjamini-Hochberg FDR across matrices / vectors:
+
+```python
+from neurocomplexity.inference import test
+null = test(te, rec, surrogate="spike_dither", n=500, seed=0,
+            alternative="greater", fdr=True)
+print(null.p_value_fdr.shape, null.effect_size.shape)
+```
+
+Two-sided tests use the conventional `2 * min(p_greater, p_less)` clipped
+at 1, which is robust to skewed null distributions. Available
+``alternative`` values: ``"greater"`` (default), ``"less"``, ``"two-sided"``.
+
+Available surrogates:
+
+| Method               | What it preserves                         | When to use |
+|----------------------|-------------------------------------------|-------------|
+| ``spike_dither``     | Per-unit rate (approximately), count      | Default for TE / connectivity |
+| ``isi_shuffle``      | Per-unit ISI distribution exactly         | Strict test against rate-only effects |
+| ``interval_shuffle`` | Within-interval ordering, trial structure | Trial-based experiments |
+
+``interval_shuffle`` requires non-overlapping intervals on the recording
+(see :func:`~neurocomplexity.io.add_trials`); it will raise ``ValueError``
+on overlapping windows to prevent silent corruption.
 
 ## Publication figures
 
@@ -85,4 +137,23 @@ multi-panel layouts yourself in your manuscript figure-prep tool of choice.
 
 ```bash
 python -m neurocomplexity benchmark --reps 50 -o my_baseline.csv
+```
+
+## Warnings the package may emit
+
+| Class                                                         | When |
+|---------------------------------------------------------------|------|
+| ``nc.warnings.QualityControlWarning``                         | An analysis was run on a recording with no unit-quality column attached. Apply :func:`~neurocomplexity.io.add_quality` or pass a curated NWB file. |
+| ``nc.warnings.StationarityWarning``                           | The population rate drifts, is heteroskedastic, or has CV > acceptance. Inspect via ``nc.analysis.stationarity(rec)`` and crop to a stationary epoch. |
+| ``nc.warnings.MemoryAllocationWarning``                       | A binning step would allocate more than ~1 GiB of dense matrix. Pass a coarser ``bin_size_ms`` or fewer units. |
+
+All three are subclasses of :class:`UserWarning` and can be filtered or
+upgraded to errors via ``warnings.filterwarnings``.
+
+## Progress bars
+
+Silent by default. Enable globally for long-running null tests / bootstraps:
+
+```python
+nc.set_progress(True)
 ```

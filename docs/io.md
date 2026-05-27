@@ -76,6 +76,33 @@ a `QualityControlWarning` explaining what to do.
 Phy already stores curator-assigned quality alongside the sort. `from_phy`
 loads it directly; no `add_quality` step is needed.
 
+### Anatomy formats
+
+`add_anatomy` accepts four formats, auto-detected by column-name sniffing:
+
+| `format=`       | Source                       | Detector hits |
+|-----------------|------------------------------|---------------|
+| `"brainglobe"`  | Brainglobe `probes.csv`      | `acronym`, `brain_region`, hierarchical region columns |
+| `"pinpoint"`    | Pinpoint exporter            | `label` column |
+| `"sharptrack"`  | SHARP-Track MATLAB `.mat`    | (loaded via `load_sharptrack`) |
+| `"csv"`         | Two-column generic CSV       | `unit_id` + `brain_area` / `area` / `region` |
+
+Pass `format=` explicitly if auto-detection fails or you want to hard-pin
+the loader.
+
+### Trial / interval tables
+
+```python
+rec = nc.io.add_trials(rec, "stim_intervals.csv", name="stim",
+                       start_column="start_time", stop_column="stop_time")
+```
+
+Stored under `rec.intervals["stim"]`. Required columns: ``start_time``
+and ``stop_time`` (or set ``start_column`` / ``stop_column`` to your
+local names — they get renamed internally). Touching intervals are
+allowed (``stop[i] == start[i+1]``); overlapping intervals are
+rejected at the surrogate-generation step.
+
 ### Multiple probes
 
 Load each probe separately, then merge:

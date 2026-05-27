@@ -22,6 +22,31 @@ import pandas as pd
 
 @dataclass(frozen=True)
 class BenchmarkResult:
+    """Single benchmark-case outcome.
+
+    Attributes
+    ----------
+    name
+        Dotted case name (e.g. ``"criticality.m_hat"``).
+    observed
+        Estimator value averaged over ``n_reps``.
+    expected
+        Ground-truth value the case is testing against.
+    tolerance
+        Absolute tolerance ``|observed - expected| <= tolerance`` for
+        ``passed`` to be ``True``.
+    passed
+        Whether the case met its tolerance.
+    runtime_s
+        Wall-clock seconds spent in the case body.
+    n_reps
+        Number of repetitions used to average ``observed``.
+    metadata
+        Free-form per-case diagnostics — typically the per-rep estimates,
+        seeds, generator parameters. Dropped by the tabular formatter
+        printed at the CLI.
+    """
+
     name: str
     observed: float
     expected: float
@@ -36,7 +61,11 @@ _REGISTRY: dict[str, Callable[..., BenchmarkResult]] = {}
 
 
 def register(name: str):
-    """Decorator: register a benchmark case under the dotted name."""
+    """Decorator: register a benchmark case under the dotted name.
+
+    The wrapped callable must accept ``n_reps`` and ``seed`` keyword
+    arguments and return a :class:`BenchmarkResult`.
+    """
     def deco(fn: Callable[..., BenchmarkResult]):
         _REGISTRY[name] = fn
         return fn
@@ -51,13 +80,36 @@ def _ensure_cases_loaded() -> None:
 
 
 def list_cases() -> list[str]:
-    """Return the sorted names of all registered benchmark cases."""
+    """Return the sorted dotted names of every registered benchmark case.
+
+    Side effect: imports the ``benchmarks.cases.*`` modules so the
+    ``@register`` decorators fire.
+    """
     _ensure_cases_loaded()
     return sorted(_REGISTRY.keys())
 
 
 def run_case(name: str, *, n_reps: int = 200, seed: int = 0) -> BenchmarkResult:
-    """Run a single benchmark case by name."""
+    """Run a single registered benchmark case by name.
+
+    Parameters
+    ----------
+    name
+        Dotted name (see :func:`list_cases`).
+    n_reps
+        Reps for the case (default 200; CI typically uses 2-20 for speed).
+    seed
+        Master RNG seed forwarded to the case.
+
+    Returns
+    -------
+    :class:`BenchmarkResult`
+
+    Raises
+    ------
+    KeyError
+        If ``name`` is not registered.
+    """
     _ensure_cases_loaded()
     if name not in _REGISTRY:
         raise KeyError(

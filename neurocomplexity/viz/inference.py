@@ -82,8 +82,31 @@ def figure_bootstrap(
         palette=palette, ax=ax, figsize=figsize, default_size=(4.0, 2.6),
     )
 
-    ax.hist(boot, bins=nbins, color=p["fill"], edgecolor=p["signal"],
-            linewidth=0.4, zorder=2)
+    # For small n the bare histogram is noisy: add a rug + KDE overlay so the
+    # density estimate is interpretable. Threshold n_resamples < 50 switches
+    # bin count down and overlays a Gaussian KDE.
+    n_boot = boot.size
+    if n_boot < 50:
+        ax.hist(boot, bins=min(nbins, max(10, n_boot // 2)),
+                density=True, color=p["fill"], edgecolor=p["signal"],
+                linewidth=0.4, zorder=2)
+        try:
+            from scipy.stats import gaussian_kde
+            xs = np.linspace(boot.min(), boot.max(), 200)
+            ys = gaussian_kde(boot)(xs)
+            ax.plot(xs, ys, "-", lw=1.2, color=p["accent"], zorder=4,
+                    label="KDE")
+        except Exception:
+            pass
+        # Rug
+        rug_y = 0.0
+        ax.plot(boot, np.full_like(boot, rug_y), "|",
+                color=p["signal"], ms=6, mew=0.8, zorder=3)
+        ax.set_ylabel("Density")
+    else:
+        ax.hist(boot, bins=nbins, color=p["fill"], edgecolor=p["signal"],
+                linewidth=0.4, zorder=2)
+        ax.set_ylabel("Count")
 
     if lo is not None and hi is not None:
         ax.axvspan(lo, hi, color=p["accent"], alpha=0.20, zorder=1,
@@ -94,7 +117,6 @@ def figure_bootstrap(
                    label=f"observed = {observed:.3g}")
 
     ax.set_xlabel(f"{result.statistic_name} (bootstrap replicates)")
-    ax.set_ylabel("Count")
 
     # Legend + stats annotation placed ABOVE the data so neither obscures the
     # histogram. Stats on the left of the title strip, legend on the right.
@@ -225,29 +247,62 @@ def figure_significance_matrix(
     col_labels: list[str] | None = None,
     alpha: float = 0.05,
     cmap: str | None = None,
+    metric: str = "auto",
 ):
-    """Pairwise effect-size heatmap with FDR significance markers.
+    """Pairwise heatmap with FDR significance markers.
 
-    Expects ``result.effect_size`` (or ``result.observed``) to be 2D and a
-    matching 2D ``result.p_value_fdr`` (or ``result.p_value``). Diagonal is
-    masked. Markers: ``*`` for ``p<alpha``, ``**`` for ``p<0.01``, ``***``
-    for ``p<0.001`` (standard convention).
+    Parameters
+    ----------
+    metric
+        Which scalar to render in each cell:
 
-    Colormap selection
-    ------------------
-    If ``cmap`` is omitted (the default), the cmap is chosen from the data:
-      * **non-negative** effects (e.g. transfer entropy, mutual information,
-        PID atoms — strictly ≥ 0 by definition) → sequential ``"magma_r"``
-        with ``vmin=0`` and ``vmax = 99th percentile``. Divergence around
-        zero would be meaningless for these statistics.
-      * **signed** effects (e.g. correlation, signed PID contrasts) →
-        diverging ``"RdBu_r"`` centred at 0 with ``vmax = 99th percentile``
-        of ``|effect|``.
-    Pass ``cmap=`` to override.
+        * ``"auto"`` (default) — plot ``result.observed`` when it is 2-D and
+          everywhere non-negative (the natural choice for transfer entropy,
+          mutual information, PID atoms). Otherwise fall back to
+          ``result.effect_size`` (z-score). The colourbar label reflects the
+          chosen field: ``result.statistic_name`` for observed, or
+          ``"effect size (z)"`` for the z-score.
+        * ``"observed"`` — always plot ``result.observed``.
+        * ``"effect_size"`` — always plot ``result.effect_size`` (the
+          previous default).
+
+    Other notes
+    -----------
+    Markers: ``*`` for ``p<alpha``, ``**`` for ``p<0.01``, ``***`` for
+    ``p<0.001``. Diagonal is masked.
+
+    Colormap selection — if ``cmap`` is omitted:
+
+      * non-negative data → sequential ``"magma_r"`` anchored at 0.
+      * signed data → diverging ``"RdBu_r"`` centred at 0.
     """
-    eff = np.asarray(
-        result.effect_size if result.effect_size is not None else result.observed
-    )
+    if metric not in ("auto", "observed", "effect_size"):
+        raise ValueError(
+            f"metric must be 'auto'/'observed'/'effect_size'; got {metric!r}"
+        )
+
+    obs = result.observed if isinstance(result.observed, np.ndarray) else None
+    eff_z = result.effect_size
+
+    if metric == "observed":
+        if obs is None or obs.ndim != 2:
+            raise ValueError("metric='observed' requires a 2-D result.observed")
+        eff = np.asarray(obs)
+        cb_label = result.statistic_name
+    elif metric == "effect_size":
+        if eff_z is None:
+            raise ValueError("metric='effect_size' requires result.effect_size")
+        eff = np.asarray(eff_z)
+        cb_label = "effect size (z)"
+    else:  # auto
+        if (obs is not None and obs.ndim == 2
+                and float(np.nanmin(obs)) >= -1e-12):
+            eff = np.asarray(obs)
+            cb_label = result.statistic_name
+        else:
+            eff = np.asarray(eff_z if eff_z is not None else result.observed)
+            cb_label = ("effect size (z)" if eff_z is not None
+                        else result.statistic_name)
     if eff.ndim != 2:
         raise ValueError(
             f"figure_significance_matrix expects a 2D effect_size/observed; "
@@ -309,12 +364,20 @@ def figure_significance_matrix(
     ax.tick_params(top=False, right=False, length=2)
 
     cb = fig.colorbar(im, ax=ax, fraction=0.04, pad=0.03)
-    cb.set_label(result.statistic_name, fontsize=6.5)
+    cb.set_label(cb_label, fontsize=6.5)
     cb.ax.tick_params(labelsize=6)
     cb.outline.set_linewidth(0.6)
 
+    # Count significant cells (off-diagonal) for the title.
+    n_total_offdiag = (n_rows * n_cols
+                       - (n_rows if n_rows == n_cols else 0))
+    n_sig = int(np.sum(pvals < alpha)) if pvals.size else 0
+    if n_rows == n_cols:
+        diag_sig = int(np.sum(np.diag(pvals) < alpha)) if pvals.size else 0
+        n_sig = max(0, n_sig - diag_sig)
     ax.set_title(
-        f"FDR markers: * p<{alpha:.2g}   ** p<0.01   *** p<0.001",
+        f"{cb_label}   *p<{alpha:.2g}  **p<0.01  ***p<0.001   "
+        f"({n_sig}/{n_total_offdiag} sig)",
         loc="left", fontsize=6.5, color=p["text"], pad=8,
     )
 
@@ -391,16 +454,22 @@ def figure_volcano(
                label=fr"$-\log_{{10}}\,\alpha$ = {threshold:.2f}")
     ax.axvline(0.0, color=p["text"], lw=0.5, ls=":")
 
-    ax.set_xlabel(f"Effect size ({result.statistic_name})")
+    ax.set_xlabel(
+        r"Effect size (z = (observed $-$ null mean) / null SD)"
+        if not np.all(eff >= -1e-12)
+        else f"Effect size ({result.statistic_name})"
+    )
     ax.set_ylabel(r"$-\log_{10}\,p_{\mathrm{FDR}}$")
 
     n_up = int(sig_up.sum())
     n_down = int(sig_down.sum())
     ax.set_title(
-        f"up: {n_up}   down: {n_down}   total: {eff.size}   n_resamples = {result.n_resamples}",
-        loc="left", fontsize=6.5, color=p["text"], pad=8,
+        f"up: {n_up}  down: {n_down}  total: {eff.size}  "
+        f"n_resamples={result.n_resamples}",
+        loc="left", fontsize=6.5, color=p["text"], pad=4,
     )
-    ax.legend(loc="lower right", bbox_to_anchor=(1.0, 1.02), ncol=4,
+    # Legend BELOW the axes so the title strip is uncluttered.
+    ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.18), ncol=4,
               frameon=False, handlelength=1.6, borderpad=0.3, fontsize=6.5,
               bbox_transform=ax.transAxes)
 

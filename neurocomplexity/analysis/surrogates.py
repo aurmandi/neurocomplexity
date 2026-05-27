@@ -11,6 +11,11 @@ from neurocomplexity.inference.surrogates import (
 
 
 def jitter_recording(rec, jitter_ms=10.0, rng=None):
+    """**Deprecated.** Forwards to
+    :func:`neurocomplexity.inference.surrogates.spike_dither`.
+
+    Will be removed in v2.0. Emits :class:`DeprecationWarning`.
+    """
     warnings.warn(
         "jitter_recording is deprecated; use "
         "neurocomplexity.inference.surrogates.spike_dither",
@@ -21,6 +26,11 @@ def jitter_recording(rec, jitter_ms=10.0, rng=None):
 
 
 def shuffle_isis(rec, rng=None):
+    """**Deprecated.** Forwards to
+    :func:`neurocomplexity.inference.surrogates.isi_shuffle`.
+
+    Will be removed in v2.0. Emits :class:`DeprecationWarning`.
+    """
     warnings.warn(
         "shuffle_isis is deprecated; use "
         "neurocomplexity.inference.surrogates.isi_shuffle",
@@ -31,6 +41,14 @@ def shuffle_isis(rec, rng=None):
 
 
 def make_surrogate(rec, method, **kwargs):
+    """**Deprecated.** Dispatcher kept for v1.x compatibility.
+
+    Use :class:`neurocomplexity.inference.SurrogatePool` (lazy generation,
+    deterministic seed handling) or call
+    :mod:`neurocomplexity.inference.surrogates` directly.
+
+    Will be removed in v2.0. Emits :class:`DeprecationWarning`.
+    """
     warnings.warn(
         "make_surrogate is deprecated; use "
         "neurocomplexity.inference.SurrogatePool",

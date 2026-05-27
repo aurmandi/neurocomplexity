@@ -56,6 +56,51 @@ def add_trials(
     start_column: str = "start_time",
     stop_column: str = "stop_time",
 ) -> SpikeRecording:
+    """Attach a behavioural / experimental interval table to a recording.
+
+    Reads a CSV / TSV / NWB file with one row per interval and joins it
+    onto ``rec.intervals`` under ``name``. Returns a new immutable
+    recording.
+
+    Parameters
+    ----------
+    rec
+        Recording to enrich.
+    path
+        Path to ``.csv``, ``.tsv`` or ``.nwb`` source file.
+    name
+        Key under which to store the interval table on ``rec.intervals``.
+        Must not already exist.
+    format
+        ``"auto"`` (default; uses the file extension), or one of
+        ``"csv"`` / ``"tsv"`` / ``"nwb"``. For NWB, the function reads
+        ``nwbfile.intervals[name]`` if present, else
+        ``nwbfile.trials`` if ``name == "trials"``.
+    start_column, stop_column
+        Names of the start / stop time columns in the source file. Both
+        get renamed to ``start_time`` / ``stop_time`` internally so that
+        :func:`~neurocomplexity.core.recording.SpikeRecording.crop_to` and
+        :func:`~neurocomplexity.inference.surrogates.interval_shuffle` can
+        find them.
+
+    Returns
+    -------
+    :class:`~neurocomplexity.core.recording.SpikeRecording`
+
+    Raises
+    ------
+    KeyError
+        If ``name`` already exists on ``rec.intervals``.
+    ValueError
+        If a row has ``start_time >= stop_time``, or any interval falls
+        outside ``[0, rec.duration]``, or required columns are missing.
+
+    Notes
+    -----
+    Intervals MAY touch (``stop[i] == start[i+1]``) but must not overlap.
+    :func:`~neurocomplexity.inference.surrogates.interval_shuffle`
+    enforces this with a hard error.
+    """
     if name in rec.intervals:
         raise KeyError(
             f"interval table {name!r} already exists on this recording; "

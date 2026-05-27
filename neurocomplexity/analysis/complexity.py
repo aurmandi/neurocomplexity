@@ -20,6 +20,54 @@ import numpy as np
 
 @dataclass(frozen=True)
 class LMCResult:
+    """Output of :func:`lmc_complexity` (López-Ruiz, Mancini, Calbet 1995).
+
+    Attributes
+    ----------
+    populations
+        Population names this result describes (one entry per row of the
+        ``*_per_pop`` arrays).
+    kind
+        Either ``"population"`` (one state space per population, of size
+        ``max(spike_count) + 1`` per bin) or ``"unit"`` (the joint
+        distribution of unit firings — see source for the exact discretisation).
+    H_per_pop
+        Normalised Shannon entropy in ``[0, 1]`` per population.
+        ``H = -sum p_i log p_i / log N`` with ``N`` the number of states.
+    D_per_pop
+        LMC disequilibrium ``D = sum (p_i - 1/N)^2`` per population. Measures
+        distance from the uniform distribution.
+    C_per_pop
+        LMC statistical complexity ``C = H * D`` per population. Peaks at
+        intermediate entropy — structured but non-trivial.
+    H_traj, D_traj, C_traj
+        Sliding-window trajectories, shape ``(n_pops, n_windows)``. ``None``
+        when no window arguments were passed.
+    window_centers_s
+        Window centre times in seconds, shape ``(n_windows,)``. ``None``
+        when no window arguments were passed.
+    bin_size_seconds
+        Bin size used to build the count distribution.
+    window_seconds
+        Length of the sliding window in seconds (``None`` if no trajectory).
+    step_seconds
+        Step between consecutive windows in seconds (``None`` if no
+        trajectory).
+    n_states_per_pop
+        Number of discrete states ``N`` used per population (per-bin range
+        of counts).
+    source
+        Provenance back-pointer.
+    params
+        Verbatim copy of the keyword arguments passed to
+        :func:`lmc_complexity`.
+
+    See Also
+    --------
+    multiscale_entropy : Costa MSE — different question; see
+        ``docs/complexity_measures.md``.
+    """
+
     populations: tuple[str, ...]
     kind: str
     H_per_pop: np.ndarray

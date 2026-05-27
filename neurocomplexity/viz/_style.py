@@ -19,7 +19,10 @@ _CURRENT = {"name": DEFAULT_PALETTE}
 
 
 def current_palette() -> dict:
-    """Return the palette dict in current use."""
+    """Return the role-keyed dict of the currently-active palette.
+
+    See :func:`~neurocomplexity.viz._palettes.get_palette` for the schema.
+    """
     return get_palette(_CURRENT["name"])
 
 
@@ -67,7 +70,12 @@ def apply_style(palette: str = DEFAULT_PALETTE) -> None:
 
 
 def set_palette(name: str) -> None:
-    """Switch the active palette and re-apply rcParams."""
+    """Switch the active palette and re-apply publication ``rcParams``.
+
+    Equivalent to ``apply_style(palette=name)``. Subsequent figure
+    functions that pass ``palette=...`` will still override on a per-call
+    basis.
+    """
     apply_style(palette=name)
 
 

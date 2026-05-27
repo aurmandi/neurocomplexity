@@ -12,7 +12,18 @@ _enabled: bool = False
 
 
 def set_progress(enabled: bool) -> None:
-    """Enable or disable progress bars globally."""
+    """Enable or disable progress bars globally for this Python process.
+
+    Affects every long-running loop in :mod:`neurocomplexity.inference`
+    and :mod:`neurocomplexity.analysis` that wraps its iterator with
+    :func:`progress_iter`. Off by default so the library stays silent in
+    scripts and CI.
+
+    Parameters
+    ----------
+    enabled
+        ``True`` to show ``tqdm`` bars, ``False`` to suppress them.
+    """
     global _enabled
     _enabled = bool(enabled)
 

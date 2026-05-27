@@ -70,6 +70,21 @@ DEFAULT_PALETTE = "forest"
 
 
 def get_palette(name: str) -> dict:
+    """Return the role-keyed colour dict for a named palette.
+
+    Keys: ``text``, ``signal``, ``accent``, ``muted``, ``fill``,
+    ``categorical`` (list).
+
+    Parameters
+    ----------
+    name
+        ``"forest"``, ``"wine"`` or ``"sage"``.
+
+    Raises
+    ------
+    KeyError
+        If ``name`` is not a registered palette.
+    """
     if name not in PALETTES:
         raise KeyError(
             f"unknown palette {name!r}; choose from {sorted(PALETTES)}"
@@ -78,7 +93,16 @@ def get_palette(name: str) -> dict:
 
 
 def diverging_cmap(name: str = DEFAULT_PALETTE):
-    """Return a LinearSegmentedColormap for population heatmaps."""
+    """Build a divergent matplotlib colormap from a named palette.
+
+    The colormap goes ``fill → white → signal``, intended for
+    population-rate heatmaps and any other use where zero should appear
+    white.
+
+    Returns
+    -------
+    matplotlib.colors.LinearSegmentedColormap
+    """
     from matplotlib.colors import LinearSegmentedColormap
     p = get_palette(name)
     return LinearSegmentedColormap.from_list(

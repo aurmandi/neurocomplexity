@@ -19,6 +19,38 @@ def merge_probes_impl(
     *,
     align_durations: AlignLiteral = "max",
 ) -> SpikeRecording:
+    """Combine multiple single-probe recordings into one multi-probe recording.
+
+    Used internally by
+    :meth:`SpikeRecording.merge_probes <neurocomplexity.core.recording.SpikeRecording.merge_probes>`.
+    Prefer the method form on the recording object.
+
+    Parameters
+    ----------
+    recordings
+        Mapping ``{probe_label: SpikeRecording}``. The label is prepended
+        to populations and used to disambiguate colliding unit ids.
+    align_durations
+        How to reconcile different per-probe ``duration`` values:
+
+        * ``"max"`` (default) — pad shorter probes; merged duration is the
+          longest.
+        * ``"min"`` — trim longer probes; merged duration is the shortest.
+        * ``"strict"`` — raise if any probe disagrees by more than 1 ms.
+
+    Returns
+    -------
+    :class:`~neurocomplexity.core.recording.SpikeRecording`
+        Merged recording. Populations from each probe are prefixed with
+        ``"{probe}::"``. Colliding unit ids are replaced with tuple-strings
+        ``"('probe_label', orig_id)"`` (a :class:`UserWarning` is emitted).
+
+    Raises
+    ------
+    ValueError
+        If ``recordings`` is empty, or ``align_durations="strict"`` and the
+        durations disagree.
+    """
     if not recordings:
         raise ValueError("recordings dict is empty")
     labels = list(recordings.keys())

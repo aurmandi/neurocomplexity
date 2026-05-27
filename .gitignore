@@ -8,9 +8,9 @@ dist/
 .eggs/
 
 # Local agent / editor state
-.claude/
 .cursor/
 .aider*
+.claude/
 
 # Virtual envs
 .venv/

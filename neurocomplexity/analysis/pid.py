@@ -36,6 +36,42 @@ from neurocomplexity.core.recording import SpikeRecording
 
 @dataclass(frozen=True)
 class PIDResult:
+    """Output of :func:`partial_information` (Williams & Beer I_min PID).
+
+    Decomposes the joint mutual information
+    ``I(target ; (source1, source2))`` into four non-negative atoms whose
+    sum equals ``total_mi``.
+
+    Attributes
+    ----------
+    redundancy
+        Information about ``target`` carried by **both** sources
+        (Williams-Beer ``I_min``).
+    unique_1, unique_2
+        Information about ``target`` carried by source 1 (resp. source 2)
+        and not by the other.
+    synergy
+        Information about ``target`` that only the **joint** observation of
+        both sources reveals.
+    total_mi
+        ``redundancy + unique_1 + unique_2 + synergy``. Equals
+        ``I(target ; (s1, s2))`` up to bias correction.
+    target
+        Name of the target population.
+    sources
+        Names of the two source populations.
+    bin_size_seconds
+        Bin size used to discretise spike counts.
+    n_levels
+        Number of quantile-equal discretisation levels per population
+        (default 3; binary saturation avoided).
+    source
+        Provenance back-pointer.
+    params
+        Verbatim copy of the keyword arguments passed to
+        :func:`partial_information`.
+    """
+
     redundancy: float
     unique_1: float
     unique_2: float
