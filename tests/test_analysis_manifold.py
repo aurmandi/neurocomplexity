@@ -182,6 +182,7 @@ def test_manifold_too_few_units_raises():
 # ---- explained variance only for PCA ----------------------------------------
 
 def test_manifold_explained_variance_none_for_tsne():
+    pytest.importorskip("sklearn")
     rec = _poisson_rec(n_units=8, duration_s=20.0, seed=3)
     with _warnings.catch_warnings():
         _warnings.simplefilter("ignore")
@@ -193,6 +194,7 @@ def test_manifold_explained_variance_none_for_tsne():
 
 
 def test_manifold_umap_smoke():
+    pytest.importorskip("umap")
     rec = _poisson_rec(n_units=8, duration_s=20.0, seed=4)
     with _warnings.catch_warnings():
         _warnings.simplefilter("ignore")

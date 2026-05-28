@@ -8,6 +8,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
+pytest.importorskip("networkx")
+
 from neurocomplexity.analysis.transfer_entropy import TransferEntropyResult
 from neurocomplexity.core.provenance import ProvenanceRecord
 from neurocomplexity.inference.results import InferenceResult
