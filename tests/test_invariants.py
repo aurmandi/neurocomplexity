@@ -110,27 +110,64 @@ class TestBranchingResult:
 # ===========================================================================
 
 class TestCriticalityResult:
-    """alpha_s, alpha_t > 1 for valid fits; Sethna gamma identity exact."""
+    """alpha_s, alpha_t > 1 for valid fits; Sethna gamma identity exact.
+
+    Uses ``trial_based_avalanches(m=1.0)`` (Galton-Watson critical branching)
+    as the fixture — Poisson does not produce heavy-tailed avalanche
+    distributions, which is why the earlier Phase-1 version skipped.
+    """
+
+    @staticmethod
+    def _critical_rec(seed: int):
+        from neurocomplexity.benchmarks.simulators.branching_network import (
+            trial_based_avalanches,
+        )
+        return trial_based_avalanches(
+            n_units=50, n_trials=8000, bin_ms=4.0,
+            m=1.0, max_trial_bins=500, seed=seed,
+        )
 
     def test_sethna_identity_exact(self):
         """gamma_predicted == (alpha_t - 1) / (alpha_s - 1) exactly."""
         from neurocomplexity.analysis.criticality import criticality
-        rec = _poisson_rec(rate_hz=80.0, duration_s=30.0, n_units=50, seed=3)
+        rec = self._critical_rec(seed=3)
         r = criticality(rec, bin_size_ms=(4.0, 8.0))
-        if np.isnan(r.alpha_s) or np.isnan(r.alpha_t):
-            pytest.skip("fit degenerate on synthetic Poisson — invariant only "
-                        "applies to valid fits")
+        assert not np.isnan(r.alpha_s), "fixture produced degenerate avalanches"
+        assert not np.isnan(r.alpha_t)
         expected = (r.alpha_t - 1.0) / (r.alpha_s - 1.0)
         assert r.gamma_predicted == pytest.approx(expected, rel=1e-12, abs=1e-12)
 
     def test_alpha_s_alpha_t_greater_than_one_when_valid(self):
         from neurocomplexity.analysis.criticality import criticality
-        rec = _poisson_rec(rate_hz=80.0, duration_s=30.0, n_units=50, seed=4)
+        rec = self._critical_rec(seed=4)
         r = criticality(rec, bin_size_ms=(4.0, 8.0))
-        if np.isnan(r.alpha_s) or np.isnan(r.alpha_t):
-            pytest.skip("fit degenerate; invariant only applies to valid fits")
+        assert not np.isnan(r.alpha_s)
+        assert not np.isnan(r.alpha_t)
         assert r.alpha_s > 1.0, f"alpha_s must be > 1 for power-law tail, got {r.alpha_s}"
         assert r.alpha_t > 1.0, f"alpha_t must be > 1 for power-law tail, got {r.alpha_t}"
+
+    def test_wilting_mr_recovers_known_m(self):
+        """Wilting multi-step regression unbiased near criticality.
+
+        Galton-Watson branching at m_true=0.95 (sub-critical, stationary)
+        should recover m_hat within 0.05.
+        """
+        from neurocomplexity.analysis.branching import wilting_mr
+        from neurocomplexity.benchmarks.simulators.branching_network import (
+            branching_network,
+        )
+        m_true = 0.95
+        rec = branching_network(
+            n_units=100, m=m_true, duration_s=600.0, bin_ms=4.0,
+            external_rate_hz=0.5, saturate=False, seed=5,
+        )
+        r = wilting_mr(rec, populations=["all"], bin_size_ms=4.0,
+                        k_max=30, k_min=1)
+        assert abs(r.m - m_true) < 0.05, (
+            f"Wilting MR off by {abs(r.m - m_true):.3f}: "
+            f"expected {m_true}, got {r.m}"
+        )
+        assert r.r_squared > 0.95, f"poor MR fit, R^2 = {r.r_squared}"
 
 
 # ===========================================================================
