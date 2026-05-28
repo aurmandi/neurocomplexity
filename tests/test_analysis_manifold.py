@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from neurocomplexity._warnings import QualityControlWarning
+from neurocomplexity._warnings import QualityControlWarning, _reset_dedup
 from neurocomplexity.analysis.manifold import (
     ManifoldResult,
     bin_units,
@@ -228,6 +228,7 @@ def test_manifold_tsne_missing_raises_importerror(monkeypatch):
 # ---- warnings ---------------------------------------------------------------
 
 def test_manifold_uncurated_warning_emitted():
+    _reset_dedup()  # avoid id(rec)-reuse collisions in the per-session dedup set
     rec = _poisson_rec()
     with _warnings.catch_warnings(record=True) as caught:
         _warnings.simplefilter("always")
