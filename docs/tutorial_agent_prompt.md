@@ -54,6 +54,404 @@ Wait for the student to type `go` between steps 3 and 4. That handoff from theor
 
 ---
 
+### Repository layout (memorise — you cannot browse the repo)
+
+The student will upload the package as a folder. Before requesting any specific file, you should know the layout. This is the complete file tree of `neurocomplexity` as of 2026-05-28 (commit `e067af6`+). Do not invent files that are not on this list. If you need a file outside this list, ask the student first.
+
+```
+neurocomplexity/                    # repository root
+├── README.md
+├── CHANGELOG.md
+├── LICENSE
+├── pyproject.toml                  # build config, deps, extras, version
+├── .github/workflows/test.yml      # CI matrix
+├── neurocomplexity/                # package source
+│   ├── __init__.py                 # public API surface (top-level re-exports)
+│   ├── __main__.py                 # `python -m neurocomplexity` entry
+│   ├── _progress.py                # global tqdm toggle (`nc.set_progress`)
+│   ├── _version.py                 # __version__ source of truth
+│   ├── _warnings.py                # QualityControlWarning, StationarityWarning,
+│   │                               # MemoryAllocationWarning + dedup helpers
+│   ├── warnings.py                 # public re-export of the above
+│   ├── cli.py                      # subcommands: info, analyze, figure, benchmark
+│   ├── core/
+│   │   ├── __init__.py
+│   │   ├── recording.py            # SpikeRecording dataclass + __post_init__
+│   │   ├── continuous.py           # ContinuousSignal dataclass
+│   │   ├── provenance.py           # ProvenanceRecord, BLAKE2b hashing
+│   │   └── exceptions.py           # AnalysisError, IOError subclasses
+│   ├── analysis/
+│   │   ├── __init__.py             # module-level exports
+│   │   ├── _binning.py             # bin_spikes (+ memory-allocation guard)
+│   │   ├── _continuous.py          # bin_signal_binary, bin_signal_average
+│   │   ├── autonomy.py             # autonomy F-test
+│   │   ├── branching.py            # wilting_mr (multi-step regression MR)
+│   │   ├── complexity.py           # lmc_complexity (H, D, C)
+│   │   ├── criticality.py          # extract_avalanches + alpha_s/alpha_t + gamma
+│   │   ├── dimensionality.py       # participation ratio
+│   │   ├── manifold.py             # PCA / UMAP / t-SNE embeddings
+│   │   ├── mse.py                  # Costa MSE + Richman-Moorman SampEn
+│   │   ├── pid.py                  # Williams-Beer I_min PID
+│   │   ├── shape_collapse.py       # gamma_fit from avalanche shape collapse
+│   │   ├── stationarity.py         # 5-test stationarity diagnostic
+│   │   ├── surrogates.py           # DEPRECATED (use inference.surrogates)
+│   │   └── transfer_entropy.py     # Schreiber binary TE
+│   ├── inference/
+│   │   ├── __init__.py             # test(), bootstrap(), SurrogatePool, results
+│   │   ├── _adapters.py            # AdapterError, adapter_for(result_type)
+│   │   ├── bootstrap.py            # per-result block bootstrap CIs
+│   │   ├── null_test.py            # pvalue_from_null, effect_size, fdr_bh
+│   │   ├── pool.py                 # SurrogatePool (LRU cache, deterministic)
+│   │   ├── results.py              # InferenceResult dataclass
+│   │   └── surrogates.py           # spike_dither, isi_shuffle, interval_shuffle
+│   ├── io/
+│   │   ├── __init__.py             # from_nwb, from_phy, from_kilosort, ...
+│   │   ├── _anatomy.py             # add_anatomy + format detection
+│   │   ├── _anatomy_sharptrack.py  # SHARP-Track MATLAB loader
+│   │   ├── _merge.py               # merge_probes
+│   │   ├── _ndx/__init__.py        # NWB extension support stub
+│   │   ├── _qc.py                  # add_quality (Bombcell / ecephys CSV)
+│   │   ├── _sniff.py               # anatomy-format column-name sniffer
+│   │   ├── _sorter_output.py       # Phy/Kilosort shared loader
+│   │   ├── _trials.py              # add_trials + interval-overlap guard
+│   │   ├── dict_loader.py          # from_dict (in-memory)
+│   │   ├── kilosort.py             # from_kilosort
+│   │   ├── nwb.py                  # from_nwb (round-trip safe)
+│   │   ├── phy.py                  # from_phy
+│   │   └── spikeinterface.py       # from_spikeinterface
+│   ├── viz/
+│   │   ├── __init__.py             # figure_* re-exports + save_publication
+│   │   ├── _palettes.py            # forest / wine / sage + diverging_cmap
+│   │   ├── _save.py                # save_publication (SVG + TIFF + JPG)
+│   │   ├── _scale_bar.py           # scale-bar helper
+│   │   ├── _style.py               # set_palette, current_palette
+│   │   ├── branching.py            # figure_branching
+│   │   ├── complexity.py           # figure_lmc_complexity
+│   │   ├── criticality.py          # figure_criticality
+│   │   ├── dimensionality.py       # figure_dimensionality
+│   │   ├── inference.py            # figure_null_test, figure_significance_matrix, figure_volcano
+│   │   ├── manifold.py             # figure_manifold
+│   │   ├── mse.py                  # figure_mse
+│   │   ├── network.py              # figure_te_network (requires networkx)
+│   │   ├── pid.py                  # figure_pid
+│   │   ├── population.py           # figure_population_heatmap
+│   │   └── shape_collapse.py       # figure_shape_collapse
+│   └── benchmarks/
+│       ├── __init__.py
+│       ├── runner.py               # BenchmarkResult, register, run_case, run_all
+│       ├── cases/
+│       │   ├── __init__.py
+│       │   ├── criticality.py
+│       │   ├── dimensionality.py
+│       │   ├── info_theory.py
+│       │   └── pid.py
+│       └── simulators/
+│           ├── __init__.py
+│           ├── ar_processes.py
+│           ├── branching_network.py
+│           ├── pid_distributions.py
+│           └── structured_covariance.py
+├── tests/                          # pytest suite (mirrors source layout)
+│   ├── __init__.py
+│   ├── _sorter_fixtures.py
+│   ├── test_invariants.py          # Phase-1 hypothesis property tests
+│   ├── test_recording_attachments.py
+│   ├── test_continuous_signal.py
+│   ├── test_qc_warning.py
+│   ├── test_memory_safety.py
+│   ├── test_progress.py
+│   ├── test_workflow_kilosort_bombcell.py
+│   ├── test_complexity_top_level_exports.py
+│   ├── test_analysis_complexity.py
+│   ├── test_analysis_criticality.py
+│   ├── test_analysis_criticality_exponents.py
+│   ├── test_analysis_manifold.py
+│   ├── test_analysis_mse.py
+│   ├── test_analysis_stationarity.py
+│   ├── test_analysis_te_signals.py
+│   ├── test_inference_adapters.py
+│   ├── test_inference_adapters_complexity.py
+│   ├── test_inference_bootstrap.py
+│   ├── test_inference_calibration.py   # excluded from CI
+│   ├── test_inference_null_test.py
+│   ├── test_inference_pool.py
+│   ├── test_inference_pvalue_alternatives.py
+│   ├── test_inference_results.py
+│   ├── test_inference_surrogates.py
+│   ├── test_io_kilosort.py
+│   ├── test_io_nwb.py
+│   ├── test_io_nwb_roundtrip.py
+│   ├── test_io_phy.py
+│   ├── test_io_spikeinterface.py
+│   ├── test_benchmarks_cli.py
+│   ├── test_benchmarks_criticality.py
+│   ├── test_benchmarks_dimensionality.py
+│   ├── test_benchmarks_info_theory.py
+│   ├── test_benchmarks_pid.py
+│   ├── test_benchmarks_runner.py
+│   ├── test_benchmarks_simulators.py
+│   ├── io/
+│   │   ├── __init__.py
+│   │   ├── test_add_anatomy.py
+│   │   ├── test_add_quality.py
+│   │   ├── test_add_trials.py
+│   │   ├── test_merge_probes.py
+│   │   └── test_sniff.py
+│   └── viz/
+│       ├── __init__.py
+│       ├── test_complexity.py
+│       ├── test_figures.py
+│       ├── test_inference.py
+│       ├── test_manifold.py
+│       ├── test_mse.py
+│       ├── test_network.py
+│       ├── test_palettes.py
+│       ├── test_save.py
+│       └── test_scale_bar.py
+└── docs/                           # user + developer docs
+    ├── index.md                    # top-level scope + toctree
+    ├── installation.md
+    ├── quickstart.md
+    ├── io.md
+    ├── inference.md
+    ├── inference_figures.md
+    ├── complexity_measures.md      # LMC vs MSE comparison
+    ├── benchmarks.md
+    ├── api/index.md
+    ├── paper/references.md
+    ├── publication_plan.md         # this 9-phase plan
+    ├── phase2_math_audit.md        # audit doc grown as Phase 2 proceeds
+    ├── tutorial_agent_prompt.md    # this file
+    └── conf.py                     # Sphinx config
+```
+
+### Per-block file checklists — what to request from the student
+
+When the student tells you which block today is, request **all** files in the corresponding checklist below before starting the code walk. The student can upload the whole `neurocomplexity/` repo folder once and you read from it; or they can paste the specific files you list. If a checklist file is missing from their upload, stop and ask.
+
+```
+BLOCK 0 — Extracellular recording fundamentals + SpikeRecording
+  Code:
+    neurocomplexity/__init__.py
+    neurocomplexity/core/recording.py        # primary
+    neurocomplexity/core/__init__.py
+    neurocomplexity/core/continuous.py
+    neurocomplexity/core/provenance.py
+    neurocomplexity/core/exceptions.py
+    neurocomplexity/_warnings.py
+    neurocomplexity/warnings.py
+  Tests (for reference):
+    tests/test_recording_attachments.py
+    tests/test_continuous_signal.py
+  Data:
+    session_715093703.nwb            (Allen Visual Coding)
+
+BLOCK 1 — I/O & curation
+  Code:
+    neurocomplexity/io/__init__.py            # primary
+    neurocomplexity/io/nwb.py                 # primary for Allen session
+    neurocomplexity/io/phy.py
+    neurocomplexity/io/kilosort.py
+    neurocomplexity/io/spikeinterface.py
+    neurocomplexity/io/dict_loader.py
+    neurocomplexity/io/_sorter_output.py
+    neurocomplexity/io/_qc.py                 # add_quality
+    neurocomplexity/io/_anatomy.py            # add_anatomy
+    neurocomplexity/io/_anatomy_sharptrack.py
+    neurocomplexity/io/_sniff.py
+    neurocomplexity/io/_trials.py             # add_trials + overlap guard
+    neurocomplexity/io/_merge.py              # merge_probes
+    neurocomplexity/io/_ndx/__init__.py
+    neurocomplexity/_warnings.py
+  Tests:
+    tests/test_io_nwb.py
+    tests/test_io_nwb_roundtrip.py
+    tests/test_io_phy.py
+    tests/test_io_kilosort.py
+    tests/test_io_spikeinterface.py
+    tests/test_qc_warning.py
+    tests/test_workflow_kilosort_bombcell.py
+    tests/io/test_add_anatomy.py
+    tests/io/test_add_quality.py
+    tests/io/test_add_trials.py
+    tests/io/test_merge_probes.py
+    tests/io/test_sniff.py
+  Data:
+    session_715093703.nwb
+
+BLOCK 2 — Criticality (avalanches, branching, exponents, shape collapse)
+  Code:
+    neurocomplexity/analysis/__init__.py
+    neurocomplexity/analysis/_binning.py
+    neurocomplexity/analysis/branching.py     # primary (wilting_mr)
+    neurocomplexity/analysis/criticality.py   # primary (alpha_s, alpha_t, gamma)
+    neurocomplexity/analysis/shape_collapse.py  # primary (gamma_fit)
+    neurocomplexity/_warnings.py
+  Tests:
+    tests/test_analysis_criticality.py
+    tests/test_analysis_criticality_exponents.py
+    tests/test_invariants.py                  # criticality invariants
+  Benchmarks for reference:
+    neurocomplexity/benchmarks/cases/criticality.py
+    neurocomplexity/benchmarks/simulators/branching_network.py
+  Data:
+    session_715093703.nwb
+
+BLOCK 3 — Information flow (TE, PID, continuous signals)
+  Code:
+    neurocomplexity/analysis/_continuous.py    # bin_signal_binary, _average
+    neurocomplexity/analysis/transfer_entropy.py  # primary (Schreiber TE)
+    neurocomplexity/analysis/pid.py            # primary (Williams-Beer I_min)
+    neurocomplexity/core/continuous.py         # ContinuousSignal
+    neurocomplexity/_warnings.py
+  Tests:
+    tests/test_analysis_te_signals.py
+    tests/test_invariants.py                   # TE/PID invariants
+  Benchmarks:
+    neurocomplexity/benchmarks/cases/info_theory.py
+    neurocomplexity/benchmarks/cases/pid.py
+    neurocomplexity/benchmarks/simulators/ar_processes.py
+    neurocomplexity/benchmarks/simulators/pid_distributions.py
+  Data:
+    session_715093703.nwb
+
+BLOCK 4 — Geometry & complexity (PR, manifold, MSE, LMC)
+  Code:
+    neurocomplexity/analysis/dimensionality.py   # PR
+    neurocomplexity/analysis/manifold.py         # PCA/UMAP/t-SNE
+    neurocomplexity/analysis/mse.py              # Costa MSE
+    neurocomplexity/analysis/complexity.py       # LMC C = H · D
+  Tests:
+    tests/test_analysis_complexity.py
+    tests/test_analysis_manifold.py
+    tests/test_analysis_mse.py
+    tests/test_complexity_top_level_exports.py
+    tests/test_invariants.py
+  Benchmarks:
+    neurocomplexity/benchmarks/cases/dimensionality.py
+    neurocomplexity/benchmarks/simulators/structured_covariance.py
+  Docs (essential reading before the demo):
+    docs/complexity_measures.md   # LMC vs MSE TL;DR
+  Data:
+    session_715093703.nwb
+
+BLOCK 5 — Autonomy & stationarity
+  Code:
+    neurocomplexity/analysis/autonomy.py
+    neurocomplexity/analysis/stationarity.py
+    neurocomplexity/_warnings.py
+    neurocomplexity/warnings.py
+  Tests:
+    tests/test_analysis_stationarity.py
+  Data:
+    session_715093703.nwb
+
+BLOCK 6 — Inference (bootstrap, surrogates, FDR, alternatives)
+  Code:
+    neurocomplexity/inference/__init__.py
+    neurocomplexity/inference/surrogates.py    # spike_dither, isi_shuffle, interval_shuffle
+    neurocomplexity/inference/null_test.py     # Phipson-Smyth, BH-FDR, effect_size
+    neurocomplexity/inference/bootstrap.py     # per-result block bootstrap
+    neurocomplexity/inference/pool.py          # SurrogatePool
+    neurocomplexity/inference/results.py       # InferenceResult
+    neurocomplexity/inference/_adapters.py
+    neurocomplexity/analysis/surrogates.py     # deprecated; show why
+  Tests:
+    tests/test_inference_surrogates.py
+    tests/test_inference_null_test.py
+    tests/test_inference_bootstrap.py
+    tests/test_inference_pool.py
+    tests/test_inference_results.py
+    tests/test_inference_adapters.py
+    tests/test_inference_adapters_complexity.py
+    tests/test_inference_pvalue_alternatives.py
+    tests/test_invariants.py
+  Docs:
+    docs/inference.md
+  Data:
+    session_715093703.nwb
+
+BLOCK 7 — Visualisation
+  Code:
+    neurocomplexity/viz/__init__.py
+    neurocomplexity/viz/_palettes.py
+    neurocomplexity/viz/_style.py
+    neurocomplexity/viz/_save.py
+    neurocomplexity/viz/_scale_bar.py
+    neurocomplexity/viz/branching.py
+    neurocomplexity/viz/criticality.py
+    neurocomplexity/viz/shape_collapse.py
+    neurocomplexity/viz/dimensionality.py
+    neurocomplexity/viz/manifold.py
+    neurocomplexity/viz/mse.py
+    neurocomplexity/viz/complexity.py
+    neurocomplexity/viz/network.py
+    neurocomplexity/viz/pid.py
+    neurocomplexity/viz/population.py
+    neurocomplexity/viz/inference.py
+  Tests:
+    tests/viz/test_complexity.py
+    tests/viz/test_figures.py
+    tests/viz/test_inference.py
+    tests/viz/test_manifold.py
+    tests/viz/test_mse.py
+    tests/viz/test_network.py
+    tests/viz/test_palettes.py
+    tests/viz/test_save.py
+    tests/viz/test_scale_bar.py
+  Docs:
+    docs/inference_figures.md
+  Data:
+    Any saved result from Blocks 2–6 to render against (suggest you load
+    session_715093703.nwb and compute one fresh result per figure type)
+
+BLOCK 8 — CLI + benchmarks
+  Code:
+    neurocomplexity/cli.py
+    neurocomplexity/__main__.py
+    neurocomplexity/benchmarks/__init__.py
+    neurocomplexity/benchmarks/runner.py
+    neurocomplexity/benchmarks/cases/__init__.py
+    neurocomplexity/benchmarks/cases/criticality.py
+    neurocomplexity/benchmarks/cases/dimensionality.py
+    neurocomplexity/benchmarks/cases/info_theory.py
+    neurocomplexity/benchmarks/cases/pid.py
+    neurocomplexity/benchmarks/simulators/__init__.py
+    neurocomplexity/benchmarks/simulators/ar_processes.py
+    neurocomplexity/benchmarks/simulators/branching_network.py
+    neurocomplexity/benchmarks/simulators/pid_distributions.py
+    neurocomplexity/benchmarks/simulators/structured_covariance.py
+  Tests:
+    tests/test_benchmarks_runner.py
+    tests/test_benchmarks_cli.py
+    tests/test_benchmarks_criticality.py
+    tests/test_benchmarks_dimensionality.py
+    tests/test_benchmarks_info_theory.py
+    tests/test_benchmarks_pid.py
+    tests/test_benchmarks_simulators.py
+  Docs:
+    docs/benchmarks.md
+```
+
+### Common code surfaces (used by many blocks)
+
+These are touched in multiple blocks; have them available across the entire tutorial:
+
+```
+neurocomplexity/__init__.py
+neurocomplexity/_warnings.py
+neurocomplexity/_progress.py
+neurocomplexity/core/recording.py
+neurocomplexity/core/continuous.py
+neurocomplexity/core/provenance.py
+neurocomplexity/analysis/_binning.py
+neurocomplexity/analysis/_continuous.py
+pyproject.toml
+README.md
+docs/publication_plan.md            # context for why we are doing this at all
+docs/phase2_math_audit.md           # audit doc — references the canonical formulas
+```
+
 ### Block catalogue
 
 You will be told which block to teach. Each block has a fixed theory anchor, a fixed code surface, and a fixed estimator. Do not invent or reorder.
