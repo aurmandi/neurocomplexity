@@ -5,8 +5,9 @@ Every public function in this package takes a
 returns a frozen ``*Result`` dataclass that carries both the numerical
 output and the parameters used to produce it.
 
-Top-level functions are re-exported at the package root (``nc.criticality``,
-``nc.transfer_entropy``, ...) for convenience.
+Functions are accessed through this subpackage (``nc.analysis.criticality``,
+``nc.analysis.transfer_entropy``, ...); the analysis namespace is not
+flattened onto the package root.
 
 Statistical inference (surrogate tests, bootstrap CIs, FDR) lives in
 :mod:`neurocomplexity.inference`; analysis functions return point estimates
@@ -38,6 +39,8 @@ from neurocomplexity.analysis.criticality import (
     CriticalityResult,
     bin_size_sweep,
     criticality,
+    extract_avalanches,
+    fit_avalanche_exponents,
 )
 from neurocomplexity.analysis.dimensionality import (
     DimensionalityResult,
@@ -63,6 +66,7 @@ from neurocomplexity.analysis.transfer_entropy import (
 
 __all__ = [
     "criticality", "CriticalityResult", "bin_size_sweep",
+    "extract_avalanches", "fit_avalanche_exponents",
     "transfer_entropy", "TransferEntropyResult",
     "autonomy", "AutonomyResult",
     "dimensionality", "DimensionalityResult",

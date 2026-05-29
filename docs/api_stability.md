@@ -24,14 +24,15 @@ is part of the stable surface. Concretely this is every result dataclass
 `StationarityResult`, `ManifoldResult`, `InferenceResult`,
 `BenchmarkResult`), every loader (`nc.io.from_nwb`, `from_kilosort`,
 `from_phy`, `from_spikeinterface`, `from_dict`, `to_nwb`, `add_quality`,
-`add_anatomy`, `add_trials`, `merge_probes`), every top-level analysis
+`add_anatomy`, `add_trials`), the `SpikeRecording.merge_probes` method,
+every top-level analysis
 (`nc.analysis.criticality`, `wilting_mr`, `shape_collapse`,
 `dimensionality`, `manifold`, `multiscale_entropy`, `lmc_complexity`,
 `transfer_entropy`, `partial_information`, `autonomy`, `stationarity`,
 `extract_avalanches`, `fit_avalanche_exponents`), the inference
 machinery (`nc.inference.test`, `bootstrap`, `pvalue_from_null`,
 `SurrogatePool`), the viz functions (`nc.viz.figure_*`,
-`figure_panel`, `save_publication`), the CLI subcommands
+`save_publication`), the CLI subcommands
 (`neurocomplexity info|analyze|figure|benchmark`), and the
 `neurocomplexity.warnings` warning classes.
 

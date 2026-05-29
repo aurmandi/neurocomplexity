@@ -1,5 +1,31 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- `nc.analysis.extract_avalanches` and `nc.analysis.fit_avalanche_exponents`
+  are now re-exported from the `analysis` namespace. They were already part
+  of the documented stable surface but were only reachable through the
+  `analysis.criticality` submodule; the API-stability contract now matches
+  the exports.
+- `nc.inference.pvalue_from_null` is re-exported from the `inference`
+  namespace (previously only on `inference.null_test`).
+- `tests/test_api_stability.py` — freeze lock asserting every symbol named
+  stable in `docs/api_stability.md` resolves at its advertised path.
+
+### Fixed
+- `docs/api_stability.md` listed `nc.io.merge_probes` (it is the
+  `SpikeRecording.merge_probes` method) and a phantom `nc.viz.figure_panel`
+  (never existed; `panel_label=` is a per-figure keyword). Contract wording
+  corrected.
+- `neurocomplexity.analysis` docstring no longer claims analysis functions
+  are re-exported onto the package root; they are accessed via
+  `nc.analysis.*`.
+- Internally-built `SurrogatePool` in `nc.inference.test` now bounds its
+  cache to the concurrent-worker count instead of the default 64, fixing a
+  `MemoryError` on large (>20M-spike) recordings. Cache size is a pure
+  performance parameter and never affects results.
+
 ## v1.1.0 — 2026-05-17
 
 ### Added
