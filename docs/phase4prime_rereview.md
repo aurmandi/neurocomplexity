@@ -104,6 +104,25 @@ avalanches" guard (data-dependent, pre-existing), not a regression.
 
 ---
 
+## Independent re-run (code-level spot verification)
+
+Re-review re-executed against the live tree (not the closure record) to
+guard against rubber-stamping. Claims verified directly in source:
+
+| Claim | File:line | Result |
+|---|---|---|
+| CSN discrete MLE `1 + n/Σln(x/(xmin−0.5))` | `criticality.py:177-180` | correct (continuous-approx offset present) |
+| TE Roulston `(m_X−1)(m_Y−1)/(2N)` | `transfer_entropy.py:110-113` | correct; `none`/`miller_madow` branches present |
+| BH-FDR `per_row`/`per_column` axis handling | `null_test.py:142-145` | correct (`axis=0` rows, `axis=1` cols) |
+| Bootstrap under-coverage guard | `bootstrap.py:168-174` | warns at `n_unique<4` |
+| CLI `--formats` argparse guard | `cli.py:412,458` | `choices=["svg","tiff","jpg"]` |
+
+**MINOR observation (non-blocking):** punch-list item #9 *text* suggested a
+`block_seconds > duration/3` floor; the author implemented the **stricter**
+`duration/4` (matching `docs/inference.md`). Stricter than requested — an
+improvement, not a defect. The punch-list text is a historical record and
+is left as-was.
+
 ## Disposition
 
 All P0 resolved, all P1 resolved, all P2 filed. Lint and reproducibility
