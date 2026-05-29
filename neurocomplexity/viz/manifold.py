@@ -167,9 +167,4 @@ def figure_manifold(result: ManifoldResult, *,
         title = f"{result.method.upper()} dims={dims} n_units={result.n_units}"
     target_ax.set_title(title, color=p["text"], loc="left")
 
-    try:
-        fig.tight_layout()
-    except Exception:
-        # Colorbar may have already locked the layout engine; safe to ignore.
-        pass
     return fig

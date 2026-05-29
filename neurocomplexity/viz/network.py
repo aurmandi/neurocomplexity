@@ -200,5 +200,4 @@ def figure_te_network(te_result: TransferEntropyResult,
                 transform=ax.transAxes, ha="center", va="bottom",
                 fontsize=7, color=p["muted"], style="italic")
     ax.set_title(title, color=p["text"], loc="left")
-    fig.tight_layout()
     return fig

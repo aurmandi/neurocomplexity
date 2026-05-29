@@ -162,7 +162,10 @@ def test_show_disconnected_false_drops_isolated_nodes():
     plt.close(fig_keep); plt.close(fig_drop)
 
 
-def test_palette_kwarg_changes_node_colors():
+def test_node_colors_palette_independent():
+    """Node colours come from the shared Okabe-Ito categorical set, which is
+    colourblind-safe and therefore identical across palettes (the aesthetic
+    palette only drives chrome/edges, not categorical hues)."""
     M = _make_matrix()
     fig_f = figure_te_network(_te_result(M), palette="forest")
     fig_w = figure_te_network(_te_result(M), palette="wine")
@@ -175,7 +178,29 @@ def test_palette_kwarg_changes_node_colors():
     cf = _node_color(fig_f)
     cw = _node_color(fig_w)
     assert cf is not None and cw is not None
-    assert not np.allclose(cf, cw)
+    assert np.allclose(cf, cw)
+    plt.close(fig_f); plt.close(fig_w)
+
+
+def test_palette_kwarg_changes_edge_color():
+    """The palette kwarg still has a visible effect: edges are drawn in the
+    palette's ``signal`` colour, which differs across palettes."""
+    M = _make_matrix()
+    fig_f = figure_te_network(_te_result(M), palette="forest")
+    fig_w = figure_te_network(_te_result(M), palette="wine")
+    def _edge_color(fig):
+        from matplotlib.collections import LineCollection
+        from matplotlib.patches import FancyArrowPatch
+        for art in fig.axes[0].get_children():
+            if isinstance(art, FancyArrowPatch):
+                return art.get_edgecolor()
+            if isinstance(art, LineCollection):
+                return art.get_color()
+        return None
+    ef = _edge_color(fig_f)
+    ew = _edge_color(fig_w)
+    assert ef is not None and ew is not None
+    assert not np.allclose(ef, ew)
     plt.close(fig_f); plt.close(fig_w)
 
 

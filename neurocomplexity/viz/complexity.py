@@ -5,13 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from neurocomplexity.analysis.complexity import LMCResult
-from neurocomplexity.viz._palettes import DEFAULT_PALETTE, get_palette
-
-
-def _pop_colors(palette_name: str, n: int) -> list[str]:
-    p = get_palette(palette_name)
-    cat = p["categorical"]
-    return [cat[i % len(cat)] for i in range(n)]
+from neurocomplexity.viz._palettes import DEFAULT_PALETTE, get_palette, series_styles
 
 
 def figure_lmc_complexity(result: LMCResult, *,
@@ -66,14 +60,14 @@ def figure_lmc_complexity(result: LMCResult, *,
     if k == "both" and result.H_traj is None:
         raise ValueError("result has no trajectory data for kind='both'; recompute with kind='both'")
 
-    colors = _pop_colors(palette, len(result.populations))
+    styles = series_styles(len(result.populations), palette)
     p = get_palette(palette)
 
     if k == "both":
         fig, axes = plt.subplots(1, 2, figsize=figsize or (8.5, 4.0))
-        _draw_population(axes[0], result, colors, null_result, p,
+        _draw_population(axes[0], result, styles, null_result, p,
                           show_legend=True)
-        _draw_trajectory(axes[1], result, colors, p, show_legend=False)
+        _draw_trajectory(axes[1], result, styles, p, show_legend=False)
         axes[0].set_title("Snapshot (per population)",
                           loc="left", color=p["text"], fontsize=8)
         axes[1].set_title("Trajectory  (alpha encodes time: dim→opaque)",
@@ -84,7 +78,6 @@ def figure_lmc_complexity(result: LMCResult, *,
                if result.window_seconds else ""),
             fontsize=9, color=p["text"], y=1.02,
         )
-        fig.tight_layout()
         return fig
 
     if ax is None:
@@ -93,19 +86,18 @@ def figure_lmc_complexity(result: LMCResult, *,
         fig = ax.figure
 
     if k == "population":
-        _draw_population(ax, result, colors, null_result, p, show_legend=True)
+        _draw_population(ax, result, styles, null_result, p, show_legend=True)
         ax.set_title(
             f"LMC C vs H   bin={result.bin_size_seconds*1e3:.0f} ms",
             loc="left", fontsize=8, color=p["text"],
         )
     else:
-        _draw_trajectory(ax, result, colors, p, show_legend=True)
+        _draw_trajectory(ax, result, styles, p, show_legend=True)
         ax.set_title(
             f"LMC trajectory  (alpha: time)   "
             f"bin={result.bin_size_seconds*1e3:.0f} ms",
             loc="left", fontsize=8, color=p["text"],
         )
-    fig.tight_layout()
     return fig
 
 
@@ -124,7 +116,7 @@ def _zoom_lims(values: np.ndarray, lo_default: float = 0.0,
     return lo, hi
 
 
-def _draw_population(ax, result: LMCResult, colors, null_result, p,
+def _draw_population(ax, result: LMCResult, styles, null_result, p,
                      show_legend: bool = True):
     if null_result is not None:
         cloud = np.asarray(null_result.null_distribution)
@@ -134,7 +126,8 @@ def _draw_population(ax, result: LMCResult, colors, null_result, p,
                            cloud[:, pi], s=8, color=p["muted"], alpha=0.4, zorder=1)
     for pi, name in enumerate(result.populations):
         ax.scatter([result.H_per_pop[pi]], [result.C_per_pop[pi]],
-                   s=60, color=colors[pi], label=name, zorder=3,
+                   s=60, color=styles[pi]["color"], marker=styles[pi]["marker"],
+                   label=name, zorder=3,
                    edgecolor=p["text"], linewidth=0.5)
     ax.set_xlabel("H (normalized Shannon entropy)", color=p["text"])
     ax.set_ylabel("C (LMC complexity)", color=p["text"])
@@ -144,16 +137,19 @@ def _draw_population(ax, result: LMCResult, colors, null_result, p,
                   ncol=min(4, len(result.populations)))
 
 
-def _draw_trajectory(ax, result: LMCResult, colors, p,
+def _draw_trajectory(ax, result: LMCResult, styles, p,
                      show_legend: bool = True):
     H = result.H_traj
     C = result.C_traj
     for pi, name in enumerate(result.populations):
+        st = styles[pi]
         n = H.shape[0]
         for i in range(n - 1):
             a = 0.2 + 0.8 * (i / max(1, n - 1))
-            ax.plot(H[i:i+2, pi], C[i:i+2, pi], color=colors[pi], alpha=a, lw=1.0)
-        ax.scatter(H[:, pi], C[:, pi], s=12, color=colors[pi],
+            ax.plot(H[i:i+2, pi], C[i:i+2, pi], color=st["color"],
+                    linestyle=st["linestyle"], alpha=a, lw=1.0)
+        ax.scatter(H[:, pi], C[:, pi], s=12, color=st["color"],
+                   marker=st["marker"],
                    edgecolor=p["text"], linewidth=0.3, label=name)
     ax.set_xlabel("H (normalized Shannon entropy)", color=p["text"])
     ax.set_ylabel("C (LMC complexity)", color=p["text"])

@@ -51,6 +51,8 @@ def apply_style(palette: str = DEFAULT_PALETTE) -> None:
         "ytick.major.width": 0.6,
         "xtick.direction": "out",
         "ytick.direction": "out",
+        "xtick.major.size": 2.0,
+        "ytick.major.size": 2.0,
         "lines.linewidth": 1.0,
         "lines.markersize": 3.5,
         "legend.frameon": False,

@@ -35,6 +35,31 @@ def _lighten(hex_color: str, target_l: float = 0.75) -> str:
     return _rgb_to_hex(r2, g2, b2)
 
 
+# Colorblind-safe categorical colours (Okabe & Ito 2008,
+# https://jfly.uni-koeln.de/color/). Deuteranopia/protanopia/tritanopia
+# safe. Pure black is omitted (reserved for text/axes) and the low-contrast
+# yellow #F0E442 is placed last so it is only reached by figures with >6
+# populations. All three palettes share this categorical set: colorblind
+# safety is independent of the aesthetic role colours.
+OKABE_ITO: list[str] = [
+    "#0072B2",  # blue
+    "#E69F00",  # orange
+    "#009E73",  # bluish green
+    "#CC79A7",  # reddish purple
+    "#56B4E9",  # sky blue
+    "#D55E00",  # vermilion
+    "#F0E442",  # yellow (low contrast on white; last)
+]
+
+# Redundant non-colour channels so series stay distinguishable under
+# colourblindness AND greyscale print (Wilke, "Fundamentals of Data Viz",
+# ch. 19). Cycle lengths (7 / 8 / 4) are mutually offset so the joint
+# (colour, marker, linestyle) combination is unique well beyond any realistic
+# population count.
+CATEGORICAL_MARKERS: list[str] = ["o", "s", "^", "D", "v", "P", "X", "*"]
+CATEGORICAL_LINESTYLES: list[str] = ["-", "--", "-.", ":"]
+
+
 PALETTES: dict[str, dict] = {
     # Text is always black for maximum print legibility, regardless of palette.
     "forest": {
@@ -43,7 +68,7 @@ PALETTES: dict[str, dict] = {
         "accent": "#A6A867",
         "muted":  "#9D91A3",
         "fill":   _lighten("#9D91A3", target_l=0.80),
-        "categorical": ["#2C2A4A", "#A6A867", "#9D91A3", "#51513D"],
+        "categorical": list(OKABE_ITO),
     },
     "wine": {
         "text":   "#000000",
@@ -51,7 +76,7 @@ PALETTES: dict[str, dict] = {
         "accent": "#C39B60",
         "muted":  "#60566B",
         "fill":   _lighten("#C39B60", target_l=0.80),
-        "categorical": ["#66232A", "#C39B60", "#60566B"],
+        "categorical": list(OKABE_ITO),
     },
     "sage": {
         "text":   "#000000",
@@ -59,7 +84,7 @@ PALETTES: dict[str, dict] = {
         "accent": "#C9CBA3",
         "muted":  "#76818E",
         "fill":   _lighten("#C9CBA3", target_l=0.85),
-        "categorical": ["#723D46", "#C9CBA3", "#76818E"],
+        "categorical": list(OKABE_ITO),
     },
 }
 
@@ -88,6 +113,40 @@ def get_palette(name: str) -> dict:
             f"unknown palette {name!r}; choose from {sorted(PALETTES)}"
         )
     return PALETTES[name]
+
+
+def series_styles(n: int, palette: str = DEFAULT_PALETTE) -> list[dict]:
+    """Return ``n`` distinct series styles for multi-population line/scatter.
+
+    Each entry is a dict with keys ``color``, ``marker``, ``linestyle``
+    cycling jointly over the colourblind-safe Okabe-Ito colours and the
+    redundant marker / linestyle channels. The three channels have
+    coprime-ish cycle lengths (7 / 8 / 4) so the combined style is unique for
+    any realistic ``n``; even when the colour repeats (``n > 7``) the marker
+    and linestyle still separate the series for colourblind and greyscale
+    readers (Wilke 2019, ch. 19; Okabe & Ito 2008).
+
+    Parameters
+    ----------
+    n
+        Number of series.
+    palette
+        Palette name (only its ``categorical`` list is consulted).
+
+    Returns
+    -------
+    list[dict]
+        ``[{"color": ..., "marker": ..., "linestyle": ...}, ...]`` length ``n``.
+    """
+    cat = get_palette(palette)["categorical"]
+    return [
+        {
+            "color": cat[i % len(cat)],
+            "marker": CATEGORICAL_MARKERS[i % len(CATEGORICAL_MARKERS)],
+            "linestyle": CATEGORICAL_LINESTYLES[i % len(CATEGORICAL_LINESTYLES)],
+        }
+        for i in range(n)
+    ]
 
 
 def diverging_cmap(name: str = DEFAULT_PALETTE):
