@@ -56,8 +56,20 @@ class TransferEntropyResult:
 
 
 def _binary_schreiber_te(source_ts: np.ndarray, target_ts: np.ndarray,
-                          delay: int = 1) -> float:
-    """TE(source -> target) in nats."""
+                          delay: int = 1, bias: str = "miller_madow") -> float:
+    """TE(source -> target) in nats.
+
+    ``bias`` selects the analytic bias correction subtracted from the plug-in
+    estimate (see :func:`transfer_entropy` for the rationale):
+
+    - ``"miller_madow"`` (default): ``(m - 1) / (2N)`` where ``m`` is the
+      number of *occupied* cells in the 8-state joint histogram. Simple and
+      conservative; the form shipped since v0.1.
+    - ``"roulston"``: ``(m_X - 1)(m_Y - 1) / (2N)``, the Roulston (2002)
+      product form over the occupied source-past (``m_X``) and target-past
+      (``m_Y``) alphabets. Smaller correction when one stream is near-degenerate.
+    - ``"none"``: raw plug-in estimate, no correction.
+    """
     y = (np.asarray(target_ts) > 0).astype(np.int8)
     x = (np.asarray(source_ts) > 0).astype(np.int8)
     T = len(y)
@@ -93,8 +105,20 @@ def _binary_schreiber_te(source_ts: np.ndarray, target_ts: np.ndarray,
                     continue
                 te += p_yyx * np.log(cond_full / cond_red)
 
-    m = int(np.sum(counts > 0))
-    te -= (m - 1) / (2.0 * N)
+    if bias == "none":
+        correction = 0.0
+    elif bias == "roulston":
+        m_x = int(np.unique(x_past).size)
+        m_y = int(np.unique(y_past).size)
+        correction = (m_x - 1) * (m_y - 1) / (2.0 * N)
+    elif bias == "miller_madow":
+        m = int(np.sum(counts > 0))
+        correction = (m - 1) / (2.0 * N)
+    else:
+        raise ValueError(
+            f"unknown bias={bias!r}; choose 'miller_madow', 'roulston', or 'none'"
+        )
+    te -= correction
     return max(0.0, float(te))
 
 
@@ -104,12 +128,35 @@ def transfer_entropy(rec: SpikeRecording,
                      delay_bins: int = 1,
                      estimator: str = "binary",
                      signals: Sequence[str] | None = None,
+                     bias: str = "miller_madow",
+                     n_jobs: int = 1,
                      ) -> TransferEntropyResult:
     """Pairwise TE matrix across the given populations and (optionally) signals.
 
     Signals are discretised via a binary median split at the chosen bin width
     and concatenated after populations in the matrix axis order. The result's
     ``populations`` tuple carries the unified ordered list of names.
+
+    Parameters
+    ----------
+    bias
+        Analytic bias correction subtracted from each plug-in TE estimate:
+        ``"miller_madow"`` (default, ``(m-1)/(2N)`` over occupied joint
+        cells), ``"roulston"`` (``(m_X-1)(m_Y-1)/(2N)`` product form,
+        Roulston 2002), or ``"none"``. See :func:`_binary_schreiber_te`.
+    n_jobs
+        Number of worker processes for the pairwise loop. ``1`` (default)
+        runs serially with the usual progress bar; ``>1`` (or ``-1`` for all
+        cores) dispatches the ``P*(P-1)`` ordered pairs via
+        :func:`joblib.Parallel`.
+
+    Complexity
+    ----------
+    The pairwise loop is ``O(P^2 * T)`` — ``P*(P-1)`` ordered population
+    pairs, each a single ``O(T)`` pass over the binned series. Memory is
+    ``O(P*T)`` for the binned counts plus ``O(P^2)`` for the output matrix.
+    With ``n_jobs>1`` the ``O(P^2)`` pair work is split across workers; the
+    ``O(P*T)`` binning is done once up front and shared.
     """
     from neurocomplexity._warnings import _warn_if_nonstationary, _warn_if_uncurated
     _warn_if_uncurated(rec, "transfer_entropy")
@@ -146,10 +193,22 @@ def transfer_entropy(rec: SpikeRecording,
     names = populations + signals
     P = counts.shape[1]
     mat = np.zeros((P, P), dtype=np.float64)
-    from neurocomplexity._progress import progress_iter
     pairs = [(s, t) for s in range(P) for t in range(P) if s != t]
-    for s, t in progress_iter(pairs, total=len(pairs), desc="TE matrix"):
-        mat[s, t] = _binary_schreiber_te(counts[:, s], counts[:, t], delay=delay_bins)
+
+    if n_jobs == 1:
+        from neurocomplexity._progress import progress_iter
+        for s, t in progress_iter(pairs, total=len(pairs), desc="TE matrix"):
+            mat[s, t] = _binary_schreiber_te(
+                counts[:, s], counts[:, t], delay=delay_bins, bias=bias)
+    else:
+        from joblib import Parallel, delayed
+        vals = Parallel(n_jobs=n_jobs)(
+            delayed(_binary_schreiber_te)(
+                counts[:, s], counts[:, t], delay=delay_bins, bias=bias)
+            for s, t in pairs
+        )
+        for (s, t), v in zip(pairs, vals):
+            mat[s, t] = v
 
     return TransferEntropyResult(
         matrix=mat,
@@ -161,5 +220,7 @@ def transfer_entropy(rec: SpikeRecording,
                 "signals": list(signals),
                 "bin_size_ms": float(bin_size_ms),
                 "delay_bins": int(delay_bins),
-                "estimator": estimator},
+                "estimator": estimator,
+                "bias": bias,
+                "n_jobs": int(n_jobs)},
     )

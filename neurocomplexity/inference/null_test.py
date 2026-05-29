@@ -93,7 +93,13 @@ def effect_size(observed, null):
 
 
 def fdr_bh(p):
-    """Benjamini-Hochberg FDR correction. Flattens, corrects, reshapes."""
+    """Benjamini-Hochberg FDR correction. Flattens, corrects, reshapes.
+
+    The whole array is treated as **one** family of hypotheses (every entry
+    is corrected against every other). For matrix-valued statistics where a
+    per-row or per-column family is more appropriate, see
+    :func:`fdr_bh_family`.
+    """
     p = np.asarray(p, dtype=float)
     shape = p.shape
     flat = p.ravel()
@@ -105,6 +111,41 @@ def fdr_bh(p):
     out = np.empty_like(flat)
     out[order] = np.clip(q, 0.0, 1.0)
     return out.reshape(shape)
+
+
+def fdr_bh_family(p, family: str = "global"):
+    """Benjamini-Hochberg FDR with an explicit family definition.
+
+    For a 2-D ``(P, P)`` p-value matrix (e.g. pairwise transfer entropy)
+    the *family* of hypotheses over which FDR is controlled changes the
+    answer materially:
+
+    - ``"global"`` — every entry is one family (``P*P`` tests). Default;
+      identical to :func:`fdr_bh`.
+    - ``"per_row"`` — each row is its own family (``P`` families of ``P``).
+      Use when each row is an independent question, e.g. "of all targets,
+      which does source *i* drive?".
+    - ``"per_column"`` — each column is its own family. Use for "of all
+      sources, which drives target *j*?".
+
+    1-D input is always corrected globally (``family`` ignored). Arrays with
+    ndim > 2 only support ``"global"``.
+    """
+    p = np.asarray(p, dtype=float)
+    if family == "global" or p.ndim <= 1:
+        return fdr_bh(p)
+    if p.ndim != 2:
+        raise ValueError(
+            f"family={family!r} only defined for 2-D p-value matrices; "
+            f"got ndim={p.ndim}. Use family='global'."
+        )
+    if family == "per_row":
+        return np.stack([fdr_bh(row) for row in p], axis=0)
+    if family == "per_column":
+        return np.stack([fdr_bh(col) for col in p.T], axis=1)
+    raise ValueError(
+        f"family must be 'global', 'per_row', or 'per_column'; got {family!r}"
+    )
 
 
 _STAT_NAMES = {
@@ -132,10 +173,23 @@ def test(
     pool=None,
     alternative: str = "greater",
     fdr: bool = True,
+    family: str = "global",
     n_jobs: int = 1,
     **surrogate_kwargs,
 ):
-    """Surrogate-based null-distribution test for an analysis result."""
+    """Surrogate-based null-distribution test for an analysis result.
+
+    Parameters
+    ----------
+    fdr
+        Apply Benjamini-Hochberg FDR correction to the p-value array
+        (only meaningful for array-valued statistics).
+    family
+        FDR family definition for matrix-valued statistics:
+        ``"global"`` (default; all entries one family), ``"per_row"``, or
+        ``"per_column"``. See :func:`fdr_bh_family`. Ignored for scalar /
+        1-D statistics.
+    """
     from neurocomplexity.inference._adapters import adapter_for, observed_statistic
     from neurocomplexity.inference.pool import SurrogatePool
     from neurocomplexity.inference.results import InferenceResult
@@ -170,7 +224,7 @@ def test(
 
     p = pvalue_from_null(obs_arr, null, alternative=alternative)
     es = effect_size(obs_arr, null)
-    p_fdr = fdr_bh(p) if (fdr and obs_arr.ndim >= 1) else None
+    p_fdr = fdr_bh_family(p, family=family) if (fdr and obs_arr.ndim >= 1) else None
 
     return InferenceResult(
         statistic_name=_statistic_name(result),
@@ -184,5 +238,6 @@ def test(
         method=pool.method,
         n_resamples=pool.n,
         seed=pool.seed,
-        metadata={**pool.metadata, "alternative": alternative},
+        metadata={**pool.metadata, "alternative": alternative,
+                  "fdr_family": family if (fdr and obs_arr.ndim >= 1) else None},
     )

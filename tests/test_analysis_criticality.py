@@ -133,10 +133,13 @@ def test_alpha_t_is_not_equal_to_gamma_fit():
     r = _run(rec)
     if np.isnan(r.alpha_t) or np.isnan(r.gamma_fit):
         pytest.skip("nan")
-    # Allow tiny chance of accidental equality on degenerate noise; require
-    # a fractional gap of at least 5%.
+    # alpha_t (Clauset-Shalizi-Newman MLE on the lifetime distribution, 1.1.0)
+    # and gamma_fit (1/slope of the size-vs-lifetime regression) are computed
+    # by different estimators. At criticality they *should* land near each
+    # other, so the guard here is only that they are not the SAME number — the
+    # old bug literally assigned alpha_t = 1/slope = gamma_fit (rel == 0).
     rel = abs(r.alpha_t - r.gamma_fit) / max(abs(r.alpha_t), 1e-9)
-    assert rel > 0.05, (
+    assert rel > 0.005, (
         f"alpha_t={r.alpha_t:.4f} should not equal gamma_fit={r.gamma_fit:.4f}; "
         "indicates the old conflation bug returned."
     )

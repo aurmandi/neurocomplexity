@@ -1,6 +1,6 @@
 # Tutorial Agent — Setup Prompt for `neurocomplexity` Block-by-Block Walkthrough
 
-Paste the section labelled **PROMPT — COPY EVERYTHING BELOW THIS LINE** into a fresh Claude session at the start of every tutorial block. The agent will request the repository folder and the Allen NWB dataset before doing anything else.
+Paste the section labelled **PROMPT — COPY EVERYTHING BELOW THIS LINE** into a fresh LLM assistant session at the start of every tutorial block. The agent will request the repository folder and the Allen NWB dataset before doing anything else.
 
 ---
 

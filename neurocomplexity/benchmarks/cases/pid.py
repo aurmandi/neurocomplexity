@@ -64,7 +64,7 @@ def _run_one(distribution: str, n_reps: int, seed: int) -> BenchmarkResult:
             "observed": {k: getattr(res, k) for k in exp},
         })
     max_err = float(np.mean(errors))
-    tol = 0.10
+    tol = 0.03
     return BenchmarkResult(
         name=f"pid.atoms_{distribution}",
         observed=max_err, expected=0.0, tolerance=tol,

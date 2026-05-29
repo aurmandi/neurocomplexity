@@ -9,10 +9,12 @@ from neurocomplexity._warnings import (
     MemoryAllocationWarning,
     QualityControlWarning,
     StationarityWarning,
+    reset,
 )
 
 __all__ = [
     "QualityControlWarning",
     "StationarityWarning",
     "MemoryAllocationWarning",
+    "reset",
 ]

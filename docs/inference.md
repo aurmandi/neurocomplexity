@@ -33,6 +33,25 @@ We use the Phipson & Smyth (2010) +1 correction:
 Benjamini-Hochberg FDR correction across entries when `fdr=True`
 (the default).
 
+### FDR family
+
+For a matrix-valued statistic (e.g. the `(P, P)` transfer-entropy matrix)
+the **family** of hypotheses over which BH-FDR controls the false-discovery
+rate must be stated explicitly — it changes which entries survive. `test()`
+takes a `family=` argument:
+
+| `family`        | Hypotheses corrected together | Use when |
+|-----------------|-------------------------------|----------|
+| `"global"` (default) | all `P*P` entries as one family | you make one omnibus claim over the whole matrix |
+| `"per_row"`     | each row independently (`P` families of `P`) | each row is a separate question — "of all targets, which does source *i* drive?" |
+| `"per_column"`  | each column independently | "of all sources, which drives target *j*?" |
+
+The chosen family is recorded in `inf.metadata["fdr_family"]`. Scalar and
+1-D statistics are always corrected globally and ignore `family`. Pick the
+family **before** looking at the matrix and report it; switching family
+after inspecting the result is a forking path. The implementation is
+`neurocomplexity.inference.null_test.fdr_bh_family`.
+
 ### Alternatives
 
 `pvalue_from_null(..., alternative=...)` accepts:

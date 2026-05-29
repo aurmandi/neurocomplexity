@@ -1,12 +1,17 @@
 """I/O loaders that materialise a ``SpikeRecording`` from disk or memory.
 
-Heavy loaders are lazy-imported so installing without the corresponding
-extra does not pull in pynwb / spikeinterface / hdmf. Pure-NumPy loaders
-import eagerly.
+Heavy loaders (NWB / Phy / Kilosort / SpikeInterface) are lazy-imported so
+installing without the corresponding extra does not pull in pynwb /
+spikeinterface / hdmf. Pure-NumPy/pandas curation helpers
+(``add_quality``, ``add_anatomy``, ``add_trials``) and ``from_dict`` import
+eagerly — they depend only on the always-installed runtime deps, so making
+them lazy bought nothing and split the import contract (C P1-10).
 """
 from __future__ import annotations
 
+from neurocomplexity.io._anatomy import add_anatomy
 from neurocomplexity.io._qc import add_quality
+from neurocomplexity.io._trials import add_trials
 from neurocomplexity.io.dict_loader import from_dict
 
 __all__ = [
@@ -37,11 +42,5 @@ def __getattr__(name):
         return _f
     if name == "from_spikeinterface":
         from neurocomplexity.io.spikeinterface import from_spikeinterface as _f
-        return _f
-    if name == "add_anatomy":
-        from neurocomplexity.io._anatomy import add_anatomy as _f
-        return _f
-    if name == "add_trials":
-        from neurocomplexity.io._trials import add_trials as _f
         return _f
     raise AttributeError(f"module 'neurocomplexity.io' has no attribute {name!r}")

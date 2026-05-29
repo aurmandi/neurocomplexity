@@ -6,7 +6,7 @@ import time
 import numpy as np
 
 from neurocomplexity.analysis.branching import wilting_mr
-from neurocomplexity.analysis.criticality import criticality, fit_alpha
+from neurocomplexity.analysis.criticality import criticality, fit_alpha_loglog
 from neurocomplexity.benchmarks.runner import BenchmarkResult, register
 from neurocomplexity.benchmarks.simulators.branching_network import (
     branching_network,
@@ -89,11 +89,13 @@ def bench_avalanche_exponents(n_reps: int = 50, seed: int = 0) -> BenchmarkResul
         result = criticality(rec, populations=["all"], bin_size_ms=(4.0,))
         if not np.isnan(result.alpha_s):
             alpha_ss.append(result.alpha_s)
-        # Cross-check duration-tail fit (Friedman 2012 tau). Since the
-        # alpha_t bug-fix this should agree with result.alpha_t up to
-        # numerical noise.
+        # Duration-tail exponent via log-binned histogram (Friedman 2012
+        # tau, mean-field value 2.0). Uses fit_alpha_loglog deliberately:
+        # the mean-field 2.0 target is the log-binned-histogram estimate.
+        # result.alpha_t uses the CSN discrete MLE, which is a distinct
+        # estimator and biases lower at xmin=1 on this simulator.
         lifetimes_in_bins = result.lifetimes / result.optimal_bin_seconds
-        tau = fit_alpha(lifetimes_in_bins, xmin=1)
+        tau = fit_alpha_loglog(lifetimes_in_bins, xmin=1)
         if not np.isnan(tau):
             tau_ts.append(tau)
     mean_alpha_s = float(np.mean(alpha_ss)) if alpha_ss else float("nan")

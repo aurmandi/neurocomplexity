@@ -9,7 +9,8 @@ Definitions (Sethna 2001 crackling-noise framework; Friedman 2012; Fontenele
   * <S>(T) ~ T^gamma_fit         ← empirical scaling exponent (regression)
   * gamma_predicted = (alpha_t - 1) / (alpha_s - 1)
   * At criticality:  gamma_fit ≈ gamma_predicted
-  * kappa = 1 + gamma_predicted  (legacy field; kept for API compatibility)
+  * kappa = 1 + gamma_predicted  (DEPRECATED legacy field; NOT Shew 2009 κ;
+    removed next minor)
 
 History: an earlier version of this module estimated alpha_t as 1/slope of
 the log_T-vs-log_S regression. That quantity is gamma_fit, NOT alpha_t.
@@ -54,8 +55,14 @@ class CriticalityResult:
         :func:`~neurocomplexity.analysis.wilting_mr`. Kept for backwards
         compatibility.
     kappa
-        Legacy ``kappa = 1 + gamma_predicted``. Kept for API stability; use
-        ``gamma_predicted`` directly in new code.
+        .. deprecated:: 1.1.0
+            ``kappa`` here is simply ``1 + gamma_predicted`` and is **not**
+            the Shew et al. (2009) κ statistic (the deviation of the
+            measured avalanche-size CDF from the theoretical reference at
+            criticality). The name collision is misleading; the field is
+            kept only for API stability and will be **removed in the next
+            minor release**. Use ``gamma_predicted`` directly, or compute
+            Shew κ explicitly if that is what you want.
     sizes
         Per-avalanche size counts (at ``optimal_bin_seconds``).
     lifetimes
@@ -138,11 +145,48 @@ def _power_law(x, a, b):
 def fit_alpha(data: np.ndarray, xmin: int = 1) -> float:
     """Fit a power-law exponent ``alpha`` such that ``P(x) ~ x^{-alpha}``.
 
+    .. versionchanged:: 1.1.0
+        Now the **Clauset–Shalizi–Newman (2009) discrete maximum-likelihood
+        estimator** rather than a log-log histogram regression. The MLE is
+        the recommended estimator for heavy-tailed count data (avalanche
+        sizes, lifetimes): the histogram-slope method is biased and its
+        variance depends on the arbitrary binning. The previous
+        implementation is preserved verbatim as :func:`fit_alpha_loglog`
+        for reproducing pre-1.1.0 numbers.
+
+    Uses the discrete MLE (Clauset et al. 2009, eq. 3.7 approximation)::
+
+        alpha_hat = 1 + n / sum_i ln( x_i / (xmin - 0.5) )
+
+    over the observations ``x_i >= xmin``. ``xmin`` is treated as given
+    (the lower cutoff of the scaling regime), not itself optimised.
+
+    Returns ``nan`` if fewer than 5 observations satisfy ``x >= xmin`` or
+    the log-sum is non-positive.
+    """
+    data = np.asarray(data, dtype=float)
+    data = data[data >= xmin]
+    n = len(data)
+    if n < 5:
+        return float("nan")
+    if float(data.max()) <= xmin:
+        return float("nan")
+    # Discrete MLE with the continuous-approximation offset (xmin - 0.5),
+    # which Clauset et al. show removes most of the small-sample bias of the
+    # naive 1 + n / sum ln(x/xmin) form on integer data.
+    denom = float(np.sum(np.log(data / (xmin - 0.5))))
+    if denom <= 0:
+        return float("nan")
+    return 1.0 + n / denom
+
+
+def fit_alpha_loglog(data: np.ndarray, xmin: int = 1) -> float:
+    """Legacy log-log histogram power-law fit (pre-1.1.0 ``fit_alpha``).
+
     Uses log-spaced histogram binning and normalises by bin width so the
-    log-log slope recovers the density exponent. Linear binning (the
-    previous implementation) systematically biases ``alpha`` upward on
-    heavy-tailed data because most tail bins are empty and the lower-x
-    bins dominate the fit.
+    log-log slope recovers the density exponent. Retained for back-compat
+    and for reproducing numbers published with versions < 1.1.0. New code
+    should use the MLE :func:`fit_alpha`.
     """
     data = np.asarray(data, dtype=float)
     data = data[data >= xmin]

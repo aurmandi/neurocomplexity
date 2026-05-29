@@ -15,11 +15,11 @@ All eleven cases pass against the v1.0.0 baseline at `n_reps=5`.
 | `info_theory.te_convergence` | Schreiber+Miller-Madow TE rank-orders analytic VAR-TE across coupling c ∈ {0.1, 0.3, 0.5} on multi-unit populations | Spearman ρ ≥ 0.85 | Schreiber 2000; Barnett et al. 2009 |
 | `info_theory.te_null` | Independent AR(1) → surrogate p ≥ 0.05 in ≥ 90 % reps | reject rate ≤ 0.10 | self-consistency |
 | `info_theory.autonomy_calibration` | VAR(1) autonomy contrasts null vs coupled on 8-units-per-population spike data | type-I ≤ 0.25; power ≥ 0.80 | Barnett & Seth 2014 |
-| `pid.atoms_xor` | Synergy = ln 2, others 0 | mean abs err < 0.10 nats | Williams & Beer 2010 |
-| `pid.atoms_and` | R ≈ 0.216, S ≈ 0.347 nats | mean abs err < 0.10 nats | Williams & Beer 2010 |
-| `pid.atoms_copy` | Unique₁ = ln 2, others 0 | mean abs err < 0.10 nats | Williams & Beer 2010 |
-| `pid.atoms_rdn` | Redundancy = ln 2, others 0 | mean abs err < 0.10 nats | Williams & Beer 2010 |
-| `pid.atoms_unq` | Unique₁ = ln 2, others 0 | mean abs err < 0.10 nats | Williams & Beer 2010 |
+| `pid.atoms_xor` | Synergy = ln 2, others 0 | mean abs err < 0.03 nats | Williams & Beer 2010 |
+| `pid.atoms_and` | R ≈ 0.216, S ≈ 0.347 nats | mean abs err < 0.03 nats | Williams & Beer 2010 |
+| `pid.atoms_copy` | Unique₁ = ln 2, others 0 | mean abs err < 0.03 nats | Williams & Beer 2010 |
+| `pid.atoms_rdn` | Redundancy = ln 2, others 0 | mean abs err < 0.03 nats | Williams & Beer 2010 |
+| `pid.atoms_unq` | Unique₁ = ln 2, others 0 | mean abs err < 0.03 nats | Williams & Beer 2010 |
 | `dimensionality.pr_rank` | PR ≈ effective rank for r ∈ {2, 5, 10} | mean abs err < 1.0 | Rajan et al. 2010; Cunningham & Yu 2014 |
 
 ### Coverage matrix

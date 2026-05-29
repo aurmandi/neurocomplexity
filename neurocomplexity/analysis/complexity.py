@@ -123,14 +123,27 @@ from neurocomplexity.core.recording import SpikeRecording
 _ALLOWED_KIND = ("population", "trajectory", "both")
 
 
-def _hdc_from_count_series(series: np.ndarray) -> tuple[float, float, float, int]:
-    """Compute (H, D, C, N_states) for a 1-D integer count series."""
+def _hdc_from_count_series(series: np.ndarray,
+                            n_states: int | None = None,
+                            ) -> tuple[float, float, float, int]:
+    """Compute (H, D, C, N_states) for a 1-D integer count series.
+
+    If ``n_states`` is ``None`` the state space is data-driven —
+    ``{0, ..., max_count}`` — so ``H`` is normalised by a per-series ``N``.
+    If ``n_states`` is given, the fixed state space ``{0, ..., n_states-1}``
+    is used (counts at or above the top are clamped into it), making ``H``
+    directly comparable across series at the cost of capped dynamic range.
+    """
     series = np.asarray(series, dtype=np.int64)
     if series.size == 0:
         return 0.0, 0.0, 0.0, 0
-    max_count = int(series.max())
-    # State space = {0, 1, ..., max_count}; size = max_count + 1.
-    edges = np.arange(max_count + 2)
+    if n_states is None:
+        n = int(series.max()) + 1
+    else:
+        n = int(n_states)
+        series = np.clip(series, 0, n - 1)
+    # State space = {0, 1, ..., n-1}; size = n.
+    edges = np.arange(n + 1)
     counts, _ = np.histogram(series, bins=edges)
     H = _shannon_entropy_counts(counts)
     D = _lmc_disequilibrium(counts)
@@ -144,6 +157,7 @@ def lmc_complexity(rec: SpikeRecording,
                     kind: str = "both",
                     window_seconds: float = 1.0,
                     step_seconds: float = 0.5,
+                    n_states: int | None = None,
                     ) -> LMCResult:
     """LMC statistical complexity for spike populations.
 
@@ -151,6 +165,19 @@ def lmc_complexity(rec: SpikeRecording,
       - ``"population"``: one (H, C) point per population from the full recording.
       - ``"trajectory"``: sliding-window (H, C) over time; one row per window.
       - ``"both"``: both, returned in a single result.
+
+    Parameters
+    ----------
+    n_states
+        Size of the discrete count state space. ``None`` (default) lets each
+        population/window use its own ``{0, ..., max_count}`` range, so the
+        normalised entropy ``H`` is divided by a *different* ``log N`` per
+        series — convenient but **not comparable across populations**. Pass a
+        fixed integer (e.g. the global ``max_count + 1``) to share one state
+        space: ``H`` then becomes directly comparable across populations and
+        windows. Trade-off — counts at or above ``n_states`` are clamped into
+        the top state, so set it high enough to avoid saturating bursty
+        populations.
     """
     from neurocomplexity._warnings import _warn_if_nonstationary, _warn_if_uncurated
     _warn_if_uncurated(rec, "lmc_complexity")
@@ -159,13 +186,16 @@ def lmc_complexity(rec: SpikeRecording,
         raise ValueError(f"kind must be one of {_ALLOWED_KIND}; got {kind!r}")
     if bin_size_s <= 0:
         raise ValueError("bin_size_s must be > 0")
+    if n_states is not None and int(n_states) < 2:
+        raise ValueError("n_states must be >= 2")
     if populations is None:
         populations = list(rec.populations.keys())
     populations = list(populations)
 
     params = {"populations": list(populations), "bin_size_s": float(bin_size_s),
               "kind": kind, "window_seconds": float(window_seconds),
-              "step_seconds": float(step_seconds)}
+              "step_seconds": float(step_seconds),
+              "n_states": None if n_states is None else int(n_states)}
 
     counts = bin_spikes(rec, populations, bin_size_s)  # (T, P) int32
     T, P = counts.shape
@@ -175,13 +205,13 @@ def lmc_complexity(rec: SpikeRecording,
     C_pop = np.zeros(P, dtype=np.float64)
     Nstates = np.zeros(P, dtype=np.int64)
     for p in range(P):
-        H, D, C, n = _hdc_from_count_series(counts[:, p])
+        H, D, C, n = _hdc_from_count_series(counts[:, p], n_states=n_states)
         H_pop[p] = H; D_pop[p] = D; C_pop[p] = C; Nstates[p] = n
 
     H_traj = D_traj = C_traj = win_centers = None
     if kind in ("trajectory", "both"):
         H_traj, D_traj, C_traj, win_centers = _trajectory(
-            counts, bin_size_s, window_seconds, step_seconds)
+            counts, bin_size_s, window_seconds, step_seconds, n_states=n_states)
 
     return LMCResult(
         populations=tuple(populations), kind=kind,
@@ -197,7 +227,8 @@ def lmc_complexity(rec: SpikeRecording,
 
 
 def _trajectory(counts: np.ndarray, bin_size_s: float,
-                 window_seconds: float, step_seconds: float):
+                 window_seconds: float, step_seconds: float,
+                 n_states: int | None = None):
     """Sliding-window (H, D, C) on per-population binned counts.
 
     Returns (H, D, C, centers) where H, D, C have shape (W, P) and centers
@@ -226,7 +257,7 @@ def _trajectory(counts: np.ndarray, bin_size_s: float,
     for wi, s in enumerate(progress_iter(starts, total=W, desc="lmc-traj")):
         window = counts[s:s + win_bins, :]
         for p in range(P):
-            h, d, c, _ = _hdc_from_count_series(window[:, p])
+            h, d, c, _ = _hdc_from_count_series(window[:, p], n_states=n_states)
             H[wi, p] = h; D[wi, p] = d; C[wi, p] = c
     centers = (starts + win_bins / 2.0) * bin_size_s
     return H, D, C, centers

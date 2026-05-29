@@ -49,6 +49,21 @@ class _ResultEncoder(json.JSONEncoder):
         return super().default(obj)
 
 
+def _logger(args):
+    """Return a ``log(msg)`` that writes human progress to the right stream.
+
+    In ``--json`` mode all progress goes to **stderr** so that **stdout**
+    carries only the machine-readable JSON payload (clean for piping into
+    ``jq`` etc.). Otherwise progress goes to stdout as before.
+    """
+    stream = sys.stderr if getattr(args, "json", False) else sys.stdout
+
+    def log(msg: str = "") -> None:
+        print(msg, file=stream, flush=True)
+
+    return log
+
+
 def _result_to_dict(name: str, result) -> dict:
     if result is None:
         return {"name": name, "available": False}
@@ -65,9 +80,10 @@ def _result_to_dict(name: str, result) -> dict:
 # Loading & preparation
 # ---------------------------------------------------------------------------
 
-def _load_recording(path: Path, *, qualities, start, end, drop_unassigned):
+def _load_recording(path: Path, *, qualities, start, end, drop_unassigned,
+                    log=print):
     import neurocomplexity as nc
-    print(f"[{time.strftime('%H:%M:%S')}] loading NWB...", flush=True)
+    log(f"[{time.strftime('%H:%M:%S')}] loading NWB...")
     t0 = time.time()
     rec = nc.io.from_nwb(path)
     if qualities:
@@ -79,9 +95,9 @@ def _load_recording(path: Path, *, qualities, start, end, drop_unassigned):
     if start is not None or end is not None:
         rec = rec.crop(start if start is not None else 0.0,
                        end if end is not None else rec.duration)
-    print(f"  loaded {rec.units.shape[0]} units, {rec.spike_times.size:,} spikes, "
-          f"{rec.duration:.1f}s, {len(rec.populations)} populations  "
-          f"(elapsed {time.time()-t0:.1f}s)", flush=True)
+    log(f"  loaded {rec.units.shape[0]} units, {rec.spike_times.size:,} spikes, "
+        f"{rec.duration:.1f}s, {len(rec.populations)} populations  "
+        f"(elapsed {time.time()-t0:.1f}s)")
     return rec
 
 
@@ -98,14 +114,27 @@ def cmd_info(args):
     import neurocomplexity as nc
     rec = nc.io.from_nwb(Path(args.nwb)).with_populations(
         by="brain_area", on_unassigned="other")
+    pops = {name: int(mask.sum()) for name, mask in rec.populations.items()}
+    qualities = sorted(rec.units["quality"].dropna().unique().tolist())
+    if getattr(args, "json", False):
+        payload = {
+            "neurocomplexity_version": __version__,
+            "input": str(args.nwb),
+            "n_units": int(rec.units.shape[0]),
+            "n_spikes": int(rec.spike_times.size),
+            "duration_seconds": float(rec.duration),
+            "unit_qualities": qualities,
+            "populations": pops,
+        }
+        json.dump(payload, sys.stdout, cls=_ResultEncoder, indent=2)
+        sys.stdout.write("\n")
+        return 0
     print(rec)
     print(f"  duration = {rec.duration:.1f} s")
-    print(f"  unit qualities = "
-          f"{sorted(rec.units['quality'].dropna().unique().tolist())}")
+    print(f"  unit qualities = {qualities}")
     print("  populations:")
-    for name, mask in sorted(rec.populations.items(),
-                              key=lambda kv: -int(kv[1].sum())):
-        print(f"    {name:>10s}  n={int(mask.sum())}")
+    for name, n in sorted(pops.items(), key=lambda kv: -kv[1]):
+        print(f"    {name:>10s}  n={n}")
     return 0
 
 
@@ -115,13 +144,14 @@ def cmd_info(args):
 
 def _run_analyses(rec, args):
     import neurocomplexity as nc
+    log = _logger(args)
     pops = args.populations or None
     target = args.target
     sources = args.sources or []
 
     out = {}
 
-    print("[criticality] alpha_s, alpha_t, kappa ...", flush=True)
+    log("[criticality] alpha_s, alpha_t, kappa ...")
     t = time.time()
     try:
         _crit_bin = (args.crit_bin_sweep
@@ -129,62 +159,62 @@ def _run_analyses(rec, args):
                       else args.crit_bin_ms)
         out["criticality"] = nc.analysis.criticality(
             rec, populations=pops, bin_size_ms=_crit_bin)
-        print(f"  alpha_s={out['criticality'].alpha_s:.3f}  "
-              f"alpha_t={out['criticality'].alpha_t:.3f}  "
-              f"R2={out['criticality'].r_squared:.3f}  "
-              f"({time.time()-t:.1f}s)")
+        log(f"  alpha_s={out['criticality'].alpha_s:.3f}  "
+            f"alpha_t={out['criticality'].alpha_t:.3f}  "
+            f"R2={out['criticality'].r_squared:.3f}  "
+            f"({time.time()-t:.1f}s)")
     except Exception as e:
-        print(f"  failed: {e}"); out["criticality"] = None
+        log(f"  failed: {e}"); out["criticality"] = None
 
-    print("[branching] Wilting MR ...", flush=True)
+    log("[branching] Wilting MR ...")
     t = time.time()
     try:
         out["branching"] = nc.analysis.wilting_mr(
             rec, populations=pops, bin_size_ms=args.bin_ms, k_max=args.k_max)
-        print(f"  m={out['branching'].m:.3f}  R2={out['branching'].r_squared:.3f}  "
-              f"({time.time()-t:.1f}s)")
+        log(f"  m={out['branching'].m:.3f}  R2={out['branching'].r_squared:.3f}  "
+            f"({time.time()-t:.1f}s)")
     except Exception as e:
-        print(f"  failed: {e}"); out["branching"] = None
+        log(f"  failed: {e}"); out["branching"] = None
 
-    print("[shape collapse] ...", flush=True)
+    log("[shape collapse] ...")
     t = time.time()
     try:
         out["shape_collapse"] = nc.analysis.shape_collapse(
             rec, populations=pops, bin_size_ms=args.bin_ms)
-        print(f"  gamma={out['shape_collapse'].gamma:.3f}  "
-              f"resid={out['shape_collapse'].residual:.4g}  "
-              f"({time.time()-t:.1f}s)")
+        log(f"  gamma={out['shape_collapse'].gamma:.3f}  "
+            f"resid={out['shape_collapse'].residual:.4g}  "
+            f"({time.time()-t:.1f}s)")
     except Exception as e:
-        print(f"  failed: {e}"); out["shape_collapse"] = None
+        log(f"  failed: {e}"); out["shape_collapse"] = None
 
-    print("[dimensionality] participation ratio ...", flush=True)
+    log("[dimensionality] participation ratio ...")
     t = time.time()
     try:
         out["dimensionality"] = nc.analysis.dimensionality(
             rec, populations=pops, bin_size_ms=args.dim_bins)
-        print(f"  PR={out['dimensionality'].participation_ratio:.2f}  "
-              f"N={out['dimensionality'].n_units}  ({time.time()-t:.1f}s)")
+        log(f"  PR={out['dimensionality'].participation_ratio:.2f}  "
+            f"N={out['dimensionality'].n_units}  ({time.time()-t:.1f}s)")
     except Exception as e:
-        print(f"  failed: {e}"); out["dimensionality"] = None
+        log(f"  failed: {e}"); out["dimensionality"] = None
 
     if target and len(sources) == 2:
-        print(f"[PID] target={target}, sources={sources} ...", flush=True)
+        log(f"[PID] target={target}, sources={sources} ...")
         t = time.time()
         try:
             out["pid"] = nc.analysis.partial_information(
                 rec, target_pop=target, sources=sources,
                 bin_size_ms=args.pid_bins, n_levels=args.pid_levels)
-            print(f"  R={out['pid'].redundancy:.4f}  "
-                  f"U1={out['pid'].unique_1:.4f}  "
-                  f"U2={out['pid'].unique_2:.4f}  "
-                  f"S={out['pid'].synergy:.4f}  "
-                  f"total_MI={out['pid'].total_mi:.4f}  ({time.time()-t:.1f}s)")
+            log(f"  R={out['pid'].redundancy:.4f}  "
+                f"U1={out['pid'].unique_1:.4f}  "
+                f"U2={out['pid'].unique_2:.4f}  "
+                f"S={out['pid'].synergy:.4f}  "
+                f"total_MI={out['pid'].total_mi:.4f}  ({time.time()-t:.1f}s)")
         except Exception as e:
-            print(f"  failed: {e}"); out["pid"] = None
+            log(f"  failed: {e}"); out["pid"] = None
     else:
         out["pid"] = None
         if target or sources:
-            print("[PID] skipped — need --target and exactly 2 --sources")
+            log("[PID] skipped — need --target and exactly 2 --sources")
 
     return out
 
@@ -201,6 +231,7 @@ def cmd_analyze(args):
 
     Run ``neurocomplexity analyze --help`` for the full flag list.
     """
+    log = _logger(args)
     outdir = Path(args.output)
     outdir.mkdir(parents=True, exist_ok=True)
 
@@ -209,6 +240,7 @@ def cmd_analyze(args):
         qualities=args.quality,
         start=args.start, end=args.end,
         drop_unassigned=args.drop_unassigned,
+        log=log,
     )
 
     results = _run_analyses(rec, args)
@@ -228,7 +260,11 @@ def cmd_analyze(args):
     json_path = outdir / "results.json"
     with open(json_path, "w", encoding="utf-8") as f:
         json.dump(payload, f, cls=_ResultEncoder, indent=2)
-    print(f"\n  wrote {json_path}")
+    log(f"\n  wrote {json_path}")
+    if getattr(args, "json", False):
+        # Machine-readable payload on stdout; progress already went to stderr.
+        json.dump(payload, sys.stdout, cls=_ResultEncoder, indent=2)
+        sys.stdout.write("\n")
 
     if not args.no_figures:
         import matplotlib
@@ -377,6 +413,9 @@ def _add_common_analysis_args(p):
                     help="figure formats to emit (default svg tiff jpg)")
     p.add_argument("--no-figures", action="store_true",
                     help="skip figure rendering")
+    p.add_argument("--json", action="store_true",
+                    help="emit the results JSON to stdout (machine-readable); "
+                    "human progress is routed to stderr")
 
 
 def build_parser():
@@ -400,6 +439,8 @@ def build_parser():
 
     p_info = sub.add_parser("info", help="describe an NWB recording")
     p_info.add_argument("nwb")
+    p_info.add_argument("--json", action="store_true",
+                         help="emit the summary as JSON on stdout")
     p_info.set_defaults(func=cmd_info)
 
     p_an = sub.add_parser("analyze", help="run analyses + figures")
