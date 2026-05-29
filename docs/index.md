@@ -24,7 +24,7 @@ bootstrap CIs and surrogate-based null tests (see [inference](inference.md)).
 ```python
 import neurocomplexity as nc
 rec = nc.io.from_nwb("session.nwb")
-m = nc.wilting_mr(rec, populations=["all"], bin_size_ms=4)
+m = nc.analysis.wilting_mr(rec, populations=["all"], bin_size_ms=4)
 print(f"branching ratio: {m.m:.3f}")
 ```
 
@@ -46,6 +46,16 @@ complexity_measures
 :caption: Reference
 
 api/index
+api_stability
+inference_figures
+calibration_report
+```
+
+```{toctree}
+:maxdepth: 1
+:caption: Design decisions
+
+decisions/2026-05-29-criticality-bin-selection
 ```
 
 ## Citation

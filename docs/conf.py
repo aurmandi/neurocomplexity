@@ -48,6 +48,13 @@ exclude_patterns = [
     ".DS_Store",
     "paper/**",
     "plans/**",
+    # Internal development / audit reports — kept in-repo for provenance but
+    # not part of the rendered user documentation.
+    "phase*.md",
+    "*_review_*.md",
+    "*_revision_*.md",
+    "publication_plan.md",
+    "tutorial_agent_prompt.md",
 ]
 
 html_theme = "furo"
@@ -59,6 +66,12 @@ autodoc_default_options = {
     "undoc-members": False,
     "show-inheritance": True,
 }
+
+# Render dataclass / docstring "Attributes" as :ivar: fields on the class
+# rather than separate py:attribute directives. Without this, napoleon emits
+# both the class-member attribute and an Attributes-section copy, producing
+# "duplicate object description" warnings for every dataclass field.
+napoleon_use_ivar = True
 
 # Optional dependencies that the [docs] extra does not install. Mock them
 # so autodoc can walk modules that top-import them (viz.* needs

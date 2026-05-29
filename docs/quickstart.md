@@ -48,24 +48,24 @@ The SpikeInterface bridge is a soft dependency — install with
 ## Run an analysis
 
 Every analysis returns a frozen dataclass that carries the numeric output
-**and** the parameters used. Top-level names are re-exported on the package
-root.
+**and** the parameters used. Analysis functions live under the
+``nc.analysis`` namespace.
 
 ```python
 # Branching ratio
-m = nc.wilting_mr(rec, populations=["all"], bin_size_ms=4)
+m = nc.analysis.wilting_mr(rec, populations=["all"], bin_size_ms=4)
 print(f"m_hat = {m.m:.3f}, R^2 = {m.r_squared:.3f}")
 
 # Criticality exponents (with Sethna consistency)
-c = nc.criticality(rec, populations=["VISp"])
+c = nc.analysis.criticality(rec, populations=["VISp"])
 print(f"alpha_s={c.alpha_s:.2f}, alpha_t={c.alpha_t:.2f}, "
       f"gamma_pred={c.gamma_predicted:.2f}, gamma_fit={c.gamma_fit:.2f}")
 
 # Effective connectivity
-te = nc.transfer_entropy(rec, populations=["VISp", "LGd", "CA1"], bin_size_ms=10)
+te = nc.analysis.transfer_entropy(rec, populations=["VISp", "LGd", "CA1"], bin_size_ms=10)
 
 # Geometry
-pr = nc.dimensionality(rec, populations=["VISp"], bin_size_ms=10)
+pr = nc.analysis.dimensionality(rec, populations=["VISp"], bin_size_ms=10)
 mfd = nc.analysis.manifold(rec, populations=["VISp"], method="pca", dims=2)
 
 # Complexity

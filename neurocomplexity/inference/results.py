@@ -54,12 +54,6 @@ class InferenceResult:
     metadata
         Free-form dictionary carrying e.g. the alternative hypothesis,
         surrogate kwargs, and the pool's provenance.
-
-    Methods
-    -------
-    to_dict()
-        Return a plain-Python dictionary suitable for JSON serialisation
-        (ndarrays become lists).
     """
 
     statistic_name: str

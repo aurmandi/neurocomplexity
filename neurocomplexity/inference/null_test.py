@@ -24,7 +24,7 @@ def pvalue_from_null(observed, null, *, alternative: str = "greater"):
     observed
         Scalar or array; matches the trailing shape of ``null``.
     null
-        Shape (n,) for scalar ``observed`` or (n, *obs.shape) for array.
+        Shape (n,) for scalar ``observed`` or ``(n, *obs.shape)`` for array.
     alternative
         ``"greater"`` (default) — right-tail.
         ``"less"`` — left-tail.

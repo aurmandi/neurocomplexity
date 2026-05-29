@@ -2,15 +2,16 @@
 
 Definitions (Sethna 2001 crackling-noise framework; Friedman 2012; Fontenele
 2019; Beggs & Plenz 2003):
-  * size S = total spike count inside the avalanche burst
-  * lifetime T = (# consecutive nonzero bins) * bin_size_seconds
-  * P(S) ~ S^(-alpha_s)
-  * P(T) ~ T^(-alpha_t)         ← fit DIRECTLY from lifetime histogram
-  * <S>(T) ~ T^gamma_fit         ← empirical scaling exponent (regression)
-  * gamma_predicted = (alpha_t - 1) / (alpha_s - 1)
-  * At criticality:  gamma_fit ≈ gamma_predicted
-  * kappa = 1 + gamma_predicted  (DEPRECATED legacy field; NOT Shew 2009 κ;
-    removed next minor)
+
+- size S = total spike count inside the avalanche burst
+- lifetime T = (# consecutive nonzero bins) * bin_size_seconds
+- P(S) ~ S^(-alpha_s)
+- P(T) ~ T^(-alpha_t) — fit DIRECTLY from lifetime histogram
+- <S>(T) ~ T^gamma_fit — empirical scaling exponent (regression)
+- gamma_predicted = (alpha_t - 1) / (alpha_s - 1)
+- At criticality: gamma_fit ≈ gamma_predicted
+- kappa = 1 + gamma_predicted (DEPRECATED legacy field; NOT Shew 2009 κ;
+  removed next minor)
 
 History: an earlier version of this module estimated alpha_t as 1/slope of
 the log_T-vs-log_S regression. That quantity is gamma_fit, NOT alpha_t.
@@ -55,14 +56,13 @@ class CriticalityResult:
         :func:`~neurocomplexity.analysis.wilting_mr`. Kept for backwards
         compatibility.
     kappa
-        .. deprecated:: 1.1.0
-            ``kappa`` here is simply ``1 + gamma_predicted`` and is **not**
-            the Shew et al. (2009) κ statistic (the deviation of the
-            measured avalanche-size CDF from the theoretical reference at
-            criticality). The name collision is misleading; the field is
-            kept only for API stability and will be **removed in the next
-            minor release**. Use ``gamma_predicted`` directly, or compute
-            Shew κ explicitly if that is what you want.
+        Deprecated. ``kappa`` here is simply ``1 + gamma_predicted`` and is
+        **not** the Shew et al. (2009) κ statistic (the deviation of the
+        measured avalanche-size CDF from the theoretical reference at
+        criticality). The name collision is misleading; the field is kept
+        only for API stability and will be **removed in the next minor
+        release**. Use ``gamma_predicted`` directly, or compute Shew κ
+        explicitly if that is what you want.
     sizes
         Per-avalanche size counts (at ``optimal_bin_seconds``).
     lifetimes

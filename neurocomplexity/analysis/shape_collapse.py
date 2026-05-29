@@ -1,11 +1,10 @@
 """Avalanche shape collapse (Friedman et al. 2012, PRL 108, 208102).
 
 Average activity profile a(t,T) of avalanches of duration T is hypothesised to
-scale as
-        a(t, T) ~ T^(gamma - 1) * F(t / T)
-for a single scaling function F and a single exponent gamma. We minimise a
-**scale-invariant** residual between rescaled shape curves with a bounded
-continuous optimiser (and a grid pre-scan to seed the bracket).
+scale as ``a(t, T) ~ T^(gamma - 1) * F(t / T)`` for a single scaling function
+F and a single exponent gamma. We minimise a *scale-invariant* residual
+between rescaled shape curves with a bounded continuous optimiser (and a grid
+pre-scan to seed the bracket).
 """
 from __future__ import annotations
 
@@ -137,6 +136,8 @@ def shape_collapse(rec: SpikeRecording,
         If no avalanches are detected, or fewer than 2 duration classes have
         enough samples for collapse.
 
+    Notes
+    -----
     Emits :class:`~neurocomplexity._warnings.QualityControlWarning` /
     :class:`~neurocomplexity._warnings.StationarityWarning` as appropriate.
 

@@ -93,5 +93,5 @@ changes on the same footing as runtime signature changes.
 
 - [`docs/api/index.md`](api/index.md) — full automodule reference for the
   stable surface.
-- [`CHANGELOG.md`](../CHANGELOG.md) — every deprecation and removal is
+- `CHANGELOG.md` (repository root) — every deprecation and removal is
   recorded here.

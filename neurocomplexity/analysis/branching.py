@@ -1,9 +1,9 @@
 """Wilting & Priesemann (2018) multi-step regression branching-ratio estimator.
 
 The estimator is robust under subsampling, which is the regime of every real
-recording. Given a binned population activity A_t (T,), it computes
-    r_k = Cov(A_t, A_{t+k}) / Var(A_t)
-for k = 1..k_max and fits log(r_k) = log(b) + k * log(m), so m = exp(slope).
+recording. Given a binned population activity A_t (T,), it computes the
+lagged autocovariance ``r_k = Cov(A_t, A_{t+k}) / Var(A_t)`` for
+k = 1..k_max and fits log(r_k) = log(b) + k * log(m), so m = exp(slope).
 
 For a critical branching process m = 1; sub-critical < 1; super-critical > 1.
 
