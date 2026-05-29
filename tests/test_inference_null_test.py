@@ -1,12 +1,16 @@
 import numpy as np
 import pandas as pd
 import pytest
-from neurocomplexity.core.recording import SpikeRecording
-from neurocomplexity.analysis.transfer_entropy import transfer_entropy
+
 from neurocomplexity.analysis.branching import wilting_mr
-from neurocomplexity.inference import SurrogatePool, test as inf_test
+from neurocomplexity.analysis.transfer_entropy import transfer_entropy
+from neurocomplexity.core.recording import SpikeRecording
+from neurocomplexity.inference import SurrogatePool
+from neurocomplexity.inference import test as inf_test
 from neurocomplexity.inference.null_test import (
-    pvalue_from_null, effect_size, fdr_bh,
+    effect_size,
+    fdr_bh,
+    pvalue_from_null,
 )
 
 
@@ -103,3 +107,36 @@ def test_test_fdr_on_matrix_output():
     inf = inf_test(te, rec, surrogate="isi_shuffle", n=20, seed=0, fdr=True)
     assert inf.p_value_fdr is not None
     assert np.asarray(inf.p_value_fdr).shape == (2, 2)
+
+
+def test_internal_pool_cache_is_bounded(monkeypatch):
+    """Regression: the internally-built SurrogatePool must NOT cache all n
+    surrogates. The pool is consumed in a single forward pass, so caching
+    every surrogate is pure memory waste; on large recordings each surrogate
+    is a full-size SpikeRecording copy and the old default (cache_size=64)
+    OOMed. Cache must be bounded to the concurrent-worker count, independent
+    of n.
+    """
+    import neurocomplexity.inference.pool as pool_mod
+
+    captured = {}
+    real_pool = pool_mod.SurrogatePool
+
+    def spy(rec, **kwargs):
+        captured["cache_size"] = kwargs.get("cache_size")
+        captured["n"] = kwargs.get("n")
+        return real_pool(rec, **kwargs)
+
+    # test() does `from neurocomplexity.inference.pool import SurrogatePool`
+    # at call time, so patching the source module is what takes effect.
+    monkeypatch.setattr(pool_mod, "SurrogatePool", spy)
+
+    rec = _two_pop_rec()
+    te = transfer_entropy(rec, populations=["A", "B"], bin_size_ms=20, delay_bins=1)
+    inf_test(te, rec, surrogate="isi_shuffle", n=50, seed=0, n_jobs=1)
+
+    assert captured["n"] == 50
+    # n_jobs=1 → serial → only one surrogate live at a time.
+    assert captured["cache_size"] == 1
+    # The bound must not scale with n.
+    assert captured["cache_size"] < captured["n"]

@@ -201,8 +201,14 @@ def test(
             raise ValueError("must provide `surrogate` if no `pool`")
         if seed is None:
             raise ValueError("`seed` is required for reproducibility")
+        # Internal pool is consumed in a single forward pass (each index is
+        # drawn exactly once below), so caching every surrogate is pure
+        # memory waste — on large recordings each surrogate is a full-size
+        # SpikeRecording copy and an n>=64 default cache OOMs. Bound the
+        # cache to just what the parallel workers need concurrently.
+        internal_cache = max(2, n_jobs) if n_jobs and n_jobs > 1 else 1
         pool = SurrogatePool(rec, surrogate=surrogate, n=n, seed=seed,
-                             **surrogate_kwargs)
+                             cache_size=internal_cache, **surrogate_kwargs)
 
     stat = adapter_for(result)
     obs = observed_statistic(result)

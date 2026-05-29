@@ -35,6 +35,8 @@ htmlcov/
 # Project-specific
 results/
 sim_output/
+outputs/
+*.log
 
 # Manuscript draft kept local-only until submission
 paper/
