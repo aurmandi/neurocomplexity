@@ -6,7 +6,7 @@ References:
   * Benjamini Y, Hochberg Y (1995). Controlling the false discovery rate.
 """
 from __future__ import annotations
-from typing import Optional
+
 import numpy as np
 
 try:
@@ -126,9 +126,9 @@ def test(
     result,
     rec,
     *,
-    surrogate: Optional[str] = None,
+    surrogate: str | None = None,
     n: int = 500,
-    seed: Optional[int] = None,
+    seed: int | None = None,
     pool=None,
     alternative: str = "greater",
     fdr: bool = True,
@@ -136,9 +136,9 @@ def test(
     **surrogate_kwargs,
 ):
     """Surrogate-based null-distribution test for an analysis result."""
-    from neurocomplexity.inference.results import InferenceResult
-    from neurocomplexity.inference.pool import SurrogatePool
     from neurocomplexity.inference._adapters import adapter_for, observed_statistic
+    from neurocomplexity.inference.pool import SurrogatePool
+    from neurocomplexity.inference.results import InferenceResult
 
     if pool is not None and surrogate is not None:
         raise ValueError("pass either `pool` OR (`surrogate`, `n`, `seed`), not both")

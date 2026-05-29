@@ -20,6 +20,7 @@ Kaiser A, Schreiber T (2002). "Information transfer in continuous
 processes." Physica D 166, 43.
 """
 from __future__ import annotations
+
 import numpy as np
 
 

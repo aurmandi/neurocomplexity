@@ -1,14 +1,17 @@
 """Criticality benchmark cases: branching-ratio m_hat recovery and avalanche exponents."""
 from __future__ import annotations
+
 import time
+
 import numpy as np
 
 from neurocomplexity.analysis.branching import wilting_mr
 from neurocomplexity.analysis.criticality import criticality, fit_alpha
-from neurocomplexity.benchmarks.simulators.branching_network import (
-    branching_network, trial_based_avalanches,
-)
 from neurocomplexity.benchmarks.runner import BenchmarkResult, register
+from neurocomplexity.benchmarks.simulators.branching_network import (
+    branching_network,
+    trial_based_avalanches,
+)
 
 
 @register("criticality.m_hat")

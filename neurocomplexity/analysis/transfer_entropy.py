@@ -6,8 +6,8 @@ degenerates (zero distances).
 """
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Sequence
 
 import numpy as np
 
@@ -111,7 +111,7 @@ def transfer_entropy(rec: SpikeRecording,
     and concatenated after populations in the matrix axis order. The result's
     ``populations`` tuple carries the unified ordered list of names.
     """
-    from neurocomplexity._warnings import _warn_if_uncurated, _warn_if_nonstationary
+    from neurocomplexity._warnings import _warn_if_nonstationary, _warn_if_uncurated
     _warn_if_uncurated(rec, "transfer_entropy")
     _warn_if_nonstationary(rec, "transfer_entropy")
     if estimator != "binary":

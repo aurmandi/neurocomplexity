@@ -12,7 +12,6 @@ from typing import Literal
 
 import matplotlib.figure
 
-
 _VALID_FORMATS = {"svg", "tiff", "jpg"}
 
 

@@ -13,7 +13,6 @@ from neurocomplexity.core.provenance import ProvenanceRecord
 from neurocomplexity.core.recording import SpikeRecording
 from neurocomplexity.io._sniff import sniff_qc_format
 
-
 FormatLiteral = Literal["auto", "bombcell", "ecephys", "spikeinterface"]
 
 

@@ -18,15 +18,14 @@ from __future__ import annotations
 
 from typing import Literal
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 from scipy.ndimage import gaussian_filter1d
 
 from neurocomplexity.core.recording import SpikeRecording
-from neurocomplexity.viz._palettes import get_palette, DEFAULT_PALETTE
-from neurocomplexity.viz._style import _apply_panel_label
+from neurocomplexity.viz._palettes import DEFAULT_PALETTE, get_palette
 from neurocomplexity.viz._scale_bar import add_scale_bar
-
+from neurocomplexity.viz._style import _apply_panel_label
 
 # Palette-independent sequential map: white → black, the Rastermap default.
 POPULATION_CMAP = "gray_r"

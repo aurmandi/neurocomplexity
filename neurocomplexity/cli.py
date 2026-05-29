@@ -28,7 +28,6 @@ import numpy as np
 
 from neurocomplexity import __version__
 
-
 # ---------------------------------------------------------------------------
 # JSON encoding for results (numpy arrays + dataclasses)
 # ---------------------------------------------------------------------------
@@ -125,8 +124,11 @@ def _run_analyses(rec, args):
     print("[criticality] alpha_s, alpha_t, kappa ...", flush=True)
     t = time.time()
     try:
+        _crit_bin = (args.crit_bin_sweep
+                      if args.crit_bin_sweep is not None
+                      else args.crit_bin_ms)
         out["criticality"] = nc.analysis.criticality(
-            rec, populations=pops, bin_size_ms=args.crit_bins)
+            rec, populations=pops, bin_size_ms=_crit_bin)
         print(f"  alpha_s={out['criticality'].alpha_s:.3f}  "
               f"alpha_t={out['criticality'].alpha_t:.3f}  "
               f"R2={out['criticality'].r_squared:.3f}  "
@@ -194,7 +196,7 @@ def cmd_analyze(args):
     filters by unit quality (``--quality``), restricts to a target
     population (``--target``) and chosen source populations
     (``--sources``), runs every analysis whose dependencies are met, and
-    writes ``results.json`` plus per-analysis figures (SVG / PDF / PNG)
+    writes ``results.json`` plus per-analysis figures (SVG / TIFF / JPG)
     into ``--output``.
 
     Run ``neurocomplexity analyze --help`` for the full flag list.
@@ -352,9 +354,15 @@ def _add_common_analysis_args(p):
                     help="PID source populations (exactly 2)")
     p.add_argument("--bin-ms", type=float, default=4.0,
                     help="bin size for branching/shape collapse (ms)")
-    p.add_argument("--crit-bins", nargs="*", type=float,
-                    default=[4.0, 8.0, 16.0],
-                    help="candidate bin sizes for criticality (ms)")
+    p.add_argument("--crit-bin-ms", type=float, default=4.0,
+                    help="bin size for criticality (ms). Default 4 ms is "
+                    "the principled single-bin choice. To run the legacy "
+                    "R²-driven sweep, pass --crit-bin-sweep instead.")
+    p.add_argument("--crit-bin-sweep", nargs="*", type=float, default=None,
+                    help="candidate bin sizes for criticality (ms). "
+                    "If supplied, runs the legacy R²-driven selection and "
+                    "emits a forking-path warning; the full per-bin table "
+                    "lands in CriticalityResult.fits.")
     p.add_argument("--k-max", type=int, default=50,
                     help="max lag for Wilting MR")
     p.add_argument("--dim-bins", type=float, default=10.0,
@@ -364,8 +372,9 @@ def _add_common_analysis_args(p):
     p.add_argument("--pid-levels", type=int, default=3,
                     help="quantile discretisation levels for PID")
     p.add_argument("--formats", nargs="*",
-                    default=["pdf", "svg", "png"],
-                    help="figure formats to emit")
+                    default=["svg", "tiff", "jpg"],
+                    choices=["svg", "tiff", "jpg"],
+                    help="figure formats to emit (default svg tiff jpg)")
     p.add_argument("--no-figures", action="store_true",
                     help="skip figure rendering")
 
@@ -404,7 +413,8 @@ def build_parser():
     p_fig.add_argument("results", help="path to results.json")
     p_fig.add_argument("-o", "--output", required=True)
     p_fig.add_argument("--formats", nargs="*",
-                        default=["pdf", "svg", "png"])
+                        default=["svg", "tiff", "jpg"],
+                        choices=["svg", "tiff", "jpg"])
     p_fig.set_defaults(func=cmd_figure)
 
     p_bench = sub.add_parser(

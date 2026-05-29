@@ -6,12 +6,10 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Literal
 
-import numpy as np
 import pandas as pd
 
 from neurocomplexity.core.provenance import ProvenanceRecord
 from neurocomplexity.core.recording import SpikeRecording
-
 
 FormatLiteral = Literal["auto", "csv", "tsv", "nwb"]
 

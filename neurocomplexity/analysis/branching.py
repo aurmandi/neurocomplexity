@@ -13,8 +13,8 @@ Reference:
 """
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Sequence
 
 import numpy as np
 from scipy.stats import linregress
@@ -120,7 +120,7 @@ def wilting_mr(rec: SpikeRecording,
     :class:`~neurocomplexity._warnings.StationarityWarning` if a rate drift
     or heteroskedasticity is detected.
     """
-    from neurocomplexity._warnings import _warn_if_uncurated, _warn_if_nonstationary
+    from neurocomplexity._warnings import _warn_if_nonstationary, _warn_if_uncurated
     _warn_if_uncurated(rec, "branching_ratio")
     _warn_if_nonstationary(rec, "branching_ratio")
     if populations is None:

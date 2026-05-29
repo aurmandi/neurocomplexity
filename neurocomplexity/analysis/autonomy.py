@@ -7,8 +7,8 @@ Default bin_size is 10 ms.
 """
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Sequence
 
 import numpy as np
 from scipy.stats import f as f_dist

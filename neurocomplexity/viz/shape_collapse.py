@@ -1,12 +1,11 @@
 """Avalanche shape collapse: raw shape family + collapsed onto F(t/T)."""
 from __future__ import annotations
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 
-from neurocomplexity.viz._palettes import get_palette, DEFAULT_PALETTE
+from neurocomplexity.viz._palettes import DEFAULT_PALETTE, get_palette
 from neurocomplexity.viz._style import _apply_panel_label
-
 
 # Viridis is the matplotlib default perceptually-uniform sequential colormap
 # (Smith & van der Walt 2015) and the de-facto standard in the avalanche shape-

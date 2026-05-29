@@ -19,11 +19,10 @@ the Sethna consistency test can still be performed.
 """
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Sequence
 
 import numpy as np
-from scipy.optimize import curve_fit
 from scipy.stats import linregress
 
 from neurocomplexity.analysis._binning import bin_all_active
@@ -95,6 +94,9 @@ class CriticalityResult:
     # New fields (post bug-fix). Defaulted so old pickled results still load.
     gamma_fit: float = float("nan")           # 1/slope of log_T vs log_S
     gamma_predicted: float = float("nan")     # (alpha_t - 1) / (alpha_s - 1)
+    # Phase-4 Tier 4 (forking-path lockdown). Every bin's fit, not just the
+    # R²-selected one. Empty if a single ``bin_size_ms`` was passed.
+    fits: tuple = ()
 
 
 def extract_avalanches(counts_1d: np.ndarray, bin_size: float):
@@ -208,21 +210,78 @@ def _branching(counts_1d: np.ndarray) -> float:
 
 def criticality(rec: SpikeRecording,
                 populations: Sequence[str] | None = None,
-                bin_size_ms: Sequence[float] = (2, 4, 8, 16, 32),
+                bin_size_ms: float | Sequence[float] = 4.0,
                 ) -> CriticalityResult:
-    """Run the bin-size sweep, fit power laws, return the best fit by R²."""
-    from neurocomplexity._warnings import _warn_if_uncurated, _warn_if_nonstationary
+    """Fit avalanche-size, lifetime, and scaling exponents at a chosen bin.
+
+    .. versionchanged:: 1.1.0
+        ``bin_size_ms`` now defaults to a *scalar* (4 ms). Passing a
+        sequence still works for backwards compatibility but emits a
+        :class:`UserWarning` flagging the R²-driven selection as a
+        methodological forking-path — see
+        ``docs/decisions/2026-05-29-criticality-bin-selection.md`` for
+        the rationale.
+
+    Parameters
+    ----------
+    rec
+        Spike recording.
+    populations
+        Names of populations whose union is binned. ``None`` → all.
+    bin_size_ms
+        Bin size in milliseconds. Pass a single ``float`` for the
+        principled single-bin estimate (recommended). Passing a
+        ``Sequence[float]`` triggers the legacy R²-driven sweep; the
+        full per-bin table is exposed in :attr:`CriticalityResult.fits`
+        so reviewers can inspect every fit. Use
+        :func:`bin_size_sweep` if you only want the table without
+        choosing a winner.
+
+    Returns
+    -------
+    :class:`CriticalityResult`
+    """
+    from neurocomplexity._warnings import _warn_if_nonstationary, _warn_if_uncurated
     _warn_if_uncurated(rec, "criticality")
     _warn_if_nonstationary(rec, "criticality")
     if populations is None:
         populations = list(rec.populations.keys())
     if not populations:
         raise ValueError("no populations to analyse")
-    _params = {"populations": list(populations),
-               "bin_size_ms": list(bin_size_ms)}
 
+    # Normalise bin_size_ms to a sequence; remember whether the user passed
+    # a scalar so we can suppress the forking-path warning and the .fits
+    # table in that case.
+    if np.isscalar(bin_size_ms):
+        bin_size_ms_seq: list[float] = [float(bin_size_ms)]
+        single_bin = True
+    else:
+        bin_size_ms_seq = [float(x) for x in bin_size_ms]
+        single_bin = len(bin_size_ms_seq) == 1
+
+    if not single_bin:
+        import warnings as _w
+        _w.warn(
+            "criticality() called with a sequence of candidate bin sizes; "
+            "the bin that maximises R² of the size-vs-lifetime regression "
+            "will be selected and reported as `optimal_bin_seconds`. This "
+            "is a methodological forking path — every fit is now exposed "
+            "in `CriticalityResult.fits` so a reviewer can audit the "
+            "choice. Prefer passing a single `bin_size_ms` value and "
+            "justifying it from the autocorrelation time, or call "
+            "`nc.analysis.bin_size_sweep(rec, ...)` directly. See "
+            "`docs/decisions/2026-05-29-criticality-bin-selection.md`.",
+            UserWarning,
+            stacklevel=2,
+        )
+
+    _params = {"populations": list(populations),
+               "bin_size_ms": list(bin_size_ms_seq),
+               "bin_selection": "single" if single_bin else "r2_sweep"}
+
+    fits: list[dict] = []
     best = {"r2": -np.inf}
-    for bs_ms in bin_size_ms:
+    for bs_ms in bin_size_ms_seq:
         bs = float(bs_ms) / 1000.0
         counts = bin_all_active(rec, populations, bs)
         sizes, lifetimes = extract_avalanches(counts, bs)
@@ -241,6 +300,11 @@ def criticality(rec: SpikeRecording,
             continue
         r2 = float(r_val ** 2)
         gamma_fit = 1.0 / slope if slope != 0 else float("nan")
+        fits.append({
+            "bin_seconds": bs, "alpha_s": float(alpha_s),
+            "alpha_t": float(alpha_t), "gamma_fit": float(gamma_fit),
+            "r_squared": r2, "n_avalanches": int(len(sizes)),
+        })
         if r2 > best["r2"]:
             best = {"r2": r2, "alpha_s": alpha_s, "alpha_t": alpha_t,
                     "gamma_fit": gamma_fit,
@@ -256,8 +320,10 @@ def criticality(rec: SpikeRecording,
             r_squared=float("nan"),
             populations=tuple(populations),
             source=rec.source,
+            params=_params,
             gamma_fit=float("nan"),
             gamma_predicted=float("nan"),
+            fits=tuple(fits),
         )
 
     alpha_s = best["alpha_s"]
@@ -281,4 +347,50 @@ def criticality(rec: SpikeRecording,
         params=_params,
         gamma_fit=best["gamma_fit"],
         gamma_predicted=gamma_predicted,
+        fits=tuple(fits),
     )
+
+
+def bin_size_sweep(rec: SpikeRecording,
+                   populations: Sequence[str] | None = None,
+                   bin_size_ms: Sequence[float] = (2, 4, 8, 16, 32),
+                   ) -> tuple[dict, ...]:
+    """Return the avalanche-fit table over a candidate bin-size grid.
+
+    Standalone alternative to :func:`criticality` that exposes the full
+    sweep *without* picking a winner. Use this when you want to inspect
+    bin-size sensitivity in your manuscript figure or supplement.
+
+    Each row is a dict with keys ``bin_seconds``, ``alpha_s``,
+    ``alpha_t``, ``gamma_fit``, ``r_squared``, ``n_avalanches``.
+
+    Bins that produce fewer than 10 avalanches (or otherwise degenerate
+    fits) are skipped.
+
+    Notes
+    -----
+    Added in 1.1.0 to address the Phase-4 Tier 4 forking-path concern.
+    """
+    from neurocomplexity._warnings import _warn_if_uncurated
+    _warn_if_uncurated(rec, "bin_size_sweep")
+    if populations is None:
+        populations = list(rec.populations.keys())
+    if not populations:
+        raise ValueError("no populations to analyse")
+    rows: list[dict] = []
+    for bs_ms in bin_size_ms:
+        bs = float(bs_ms) / 1000.0
+        counts = bin_all_active(rec, populations, bs)
+        sizes, lifetimes = extract_avalanches(counts, bs)
+        if len(sizes) < 10 or np.var(sizes) == 0:
+            continue
+        alpha_s, alpha_t, gamma_fit, r2 = fit_avalanche_exponents(
+            sizes, lifetimes, bs)
+        if not np.isfinite(r2):
+            continue
+        rows.append({
+            "bin_seconds": bs, "alpha_s": float(alpha_s),
+            "alpha_t": float(alpha_t), "gamma_fit": float(gamma_fit),
+            "r_squared": float(r2), "n_avalanches": int(len(sizes)),
+        })
+    return tuple(rows)

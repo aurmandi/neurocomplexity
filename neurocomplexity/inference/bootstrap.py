@@ -5,7 +5,9 @@ Each resampler returns an InferenceResult with `bootstrap_distribution`,
 `bootstrap()` dispatch is uniform.
 """
 from __future__ import annotations
+
 from dataclasses import replace
+
 import numpy as np
 from scipy.stats import norm
 
@@ -15,18 +17,21 @@ try:
 except ImportError:
     _HAS_JOBLIB = False
 
-from neurocomplexity.inference.results import InferenceResult
+from neurocomplexity.analysis.autonomy import AutonomyResult, autonomy
+from neurocomplexity.analysis.branching import BranchingResult, wilting_mr
 from neurocomplexity.analysis.criticality import (
-    fit_avalanche_exponents, CriticalityResult,
+    CriticalityResult,
+    fit_avalanche_exponents,
 )
-from neurocomplexity.analysis.branching import wilting_mr, BranchingResult
 from neurocomplexity.analysis.dimensionality import (
-    dimensionality, DimensionalityResult,
+    DimensionalityResult,
+    dimensionality,
 )
 from neurocomplexity.analysis.shape_collapse import (
-    shape_collapse, ShapeCollapseResult,
+    ShapeCollapseResult,
+    shape_collapse,
 )
-from neurocomplexity.analysis.autonomy import autonomy, AutonomyResult
+from neurocomplexity.inference.results import InferenceResult
 
 
 def _ci_from_dist(dist: np.ndarray, level: float, observed=None):
@@ -151,6 +156,28 @@ def bootstrap_avalanche_exponents(
     )
 
 
+def _warn_if_few_blocks(duration: float, block_seconds: float) -> None:
+    """Emit ``UserWarning`` when block bootstrap has too few unique blocks.
+
+    Politis-Romano (1994) require the number of distinct blocks to grow with
+    sample size; in practice CIs under-cover badly when ``duration <
+    3 * block_seconds`` (≤ 3 unique blocks). This warns before the resample
+    proceeds. See `docs/inference.md` § "Block size guidance".
+    """
+    import warnings as _w
+    n_unique = max(1, int(np.ceil(duration / block_seconds)))
+    if n_unique < 4:
+        _w.warn(
+            f"block bootstrap on {duration:.1f}s with block_seconds="
+            f"{block_seconds:g}s yields only {n_unique} unique block(s); "
+            f"confidence intervals may under-cover. Reduce block_seconds "
+            f"to ≤ duration/4 or extend the recording. See "
+            f"docs/inference.md § 'Block size guidance'.",
+            UserWarning,
+            stacklevel=3,
+        )
+
+
 def _block_resampled_recording(rec, *, block_seconds: float, rng):
     """Concatenate randomly-drawn blocks of `block_seconds` from `rec`."""
     n_blocks = int(np.ceil(rec.duration / block_seconds))
@@ -215,6 +242,7 @@ def bootstrap_branching_ratio(
         With ``observed = result.m``, ``bootstrap_distribution`` of length
         ``n``, and ``ci_lower`` / ``ci_upper`` populated.
     """
+    _warn_if_few_blocks(rec.duration, block_seconds)
     kw = dict(result.params)
 
     def _one(s):
@@ -256,6 +284,7 @@ def bootstrap_participation_ratio(
     ``block_seconds`` defaults to 1 s here because PR is computed on
     short-timescale (10 ms) bins and its autocorrelation is shorter.
     """
+    _warn_if_few_blocks(rec.duration, block_seconds)
     kw = dict(result.params)
 
     def _one(s):
@@ -294,6 +323,7 @@ def bootstrap_shape_collapse(
 
     See :func:`bootstrap_branching_ratio` for parameter semantics.
     """
+    _warn_if_few_blocks(rec.duration, block_seconds)
     kw = dict(result.params)
 
     def _one(s):
@@ -333,6 +363,7 @@ def bootstrap_autonomy(
     a vector ``observed`` with one entry per population (sorted by name),
     matching ``ci_lower`` / ``ci_upper`` arrays of the same shape.
     """
+    _warn_if_few_blocks(rec.duration, block_seconds)
     kw = dict(result.params)
     keys = sorted(result.values.keys())
     obs = np.array([result.values[k] for k in keys])

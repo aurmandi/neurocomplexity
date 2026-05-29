@@ -10,8 +10,8 @@ References:
 """
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Sequence
 
 import numpy as np
 
@@ -141,8 +141,12 @@ def multiscale_entropy(rec,
     m
         Sample-entropy template length (default 2).
     r_factor
-        Tolerance factor for sample entropy (default 0.2 — Costa 2002).
-        Actual tolerance is ``r_factor * SD(original)`` per population.
+        Tolerance factor for sample entropy. Default 0.2 follows the
+        Pincus (1991) / Richman & Moorman (2000) convention. Costa et al.
+        (2002) reported MSE on physiologic time series using
+        ``r_factor=0.15``; pass that value explicitly to reproduce their
+        choice. Actual tolerance is ``r_factor * SD(original)`` per
+        population.
 
     Returns
     -------
@@ -174,8 +178,8 @@ def multiscale_entropy(rec,
       using approximate entropy and sample entropy.* Am J Physiol Heart
       Circ Physiol 278:H2039.
     """
-    from neurocomplexity._warnings import _warn_if_uncurated, _warn_if_nonstationary
     from neurocomplexity._progress import progress_iter
+    from neurocomplexity._warnings import _warn_if_nonstationary, _warn_if_uncurated
     from neurocomplexity.analysis._binning import bin_spikes
 
     _warn_if_uncurated(rec, "multiscale_entropy")

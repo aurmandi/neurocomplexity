@@ -15,7 +15,6 @@ from neurocomplexity.core.provenance import ProvenanceRecord
 from neurocomplexity.core.recording import SpikeRecording
 from neurocomplexity.io._sniff import sniff_anatomy_format
 
-
 FormatLiteral = Literal["auto", "sharptrack", "brainglobe", "pinpoint", "csv"]
 
 

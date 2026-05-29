@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import hashlib
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -57,7 +57,7 @@ class ProvenanceRecord:
     loaded_at: str
 
     @classmethod
-    def for_file(cls, path: str | os.PathLike, source_format: str) -> "ProvenanceRecord":
+    def for_file(cls, path: str | os.PathLike, source_format: str) -> ProvenanceRecord:
         path = str(Path(path).resolve())
         return cls(
             source_path=path,
@@ -69,7 +69,7 @@ class ProvenanceRecord:
         )
 
     @classmethod
-    def for_memory(cls, source_format: str, hint: str = "") -> "ProvenanceRecord":
+    def for_memory(cls, source_format: str, hint: str = "") -> ProvenanceRecord:
         return cls(
             source_path=f"<memory:{hint}>" if hint else "<memory>",
             source_format=source_format,

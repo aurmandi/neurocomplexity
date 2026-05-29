@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from neurocomplexity.analysis.manifold import ManifoldResult
-from neurocomplexity.viz._palettes import get_palette, DEFAULT_PALETTE
+from neurocomplexity.viz._palettes import DEFAULT_PALETTE, get_palette
 
 
 def _make_time_cmap(palette: str):

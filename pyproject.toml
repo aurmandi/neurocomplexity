@@ -11,12 +11,12 @@ requires-python = ">=3.10,<3.14"
 license = { text = "MIT" }
 authors = [{ name = "Sazgar Arman Dinarvand" }]
 dependencies = [
-    "numpy>=1.24",
-    "scipy>=1.10",
-    "pandas>=2.0",
-    "statsmodels>=0.14",
-    "tqdm>=4.65",
-    "joblib>=1.3",
+    "numpy>=1.24,<3",
+    "scipy>=1.10,<2",
+    "pandas>=2.0,<3",
+    "statsmodels>=0.14,<1",
+    "tqdm>=4.65,<5",
+    "joblib>=1.3,<2",
 ]
 
 [project.optional-dependencies]
@@ -51,3 +51,83 @@ markers = [
     "requires_neuropixels: integration test needing the Allen NWB fixture",
     "slow: long-running calibration test (run with `-m slow`)",
 ]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+extend-exclude = [
+    "docs/_build",
+    "results",
+    "tutorial",
+    "docs/examples",
+]
+
+[tool.ruff.lint]
+# Phase-4 punch-list Tier 3.12: start with the smallest passing surface.
+# Enable: pyflakes (F) for unused / undefined; pycodestyle E (errors only,
+# no whitespace nits because the codebase predates auto-format); isort (I)
+# for import ordering; bugbear (B) for likely bugs; comprehensions (C4);
+# pyupgrade (UP) for >= 3.10 syntax. Tighten in 1.2.
+select = ["F", "E", "I", "B", "C4", "UP"]
+ignore = [
+    "E501",   # line length is handled by formatter, not the linter
+    "E702",   # `a; b` on one line: a few legacy compact assignments remain;
+              # cleanup tracked as 1.2 follow-up
+    "E402",   # module-level import not at top: two intentional lazy imports
+    "E741",   # ambiguous one-letter variable: legacy `l` in one regression
+    "B007",   # unused loop variable (`_`): legacy enumerate loops; 1.2
+    "B008",   # function call in default argument: used intentionally for
+              # ProvenanceRecord.for_memory factory bindings
+    "B028",   # warnings.warn() without stacklevel: many sites pass one
+              # explicitly, others are intentional; revisit in 1.2
+    "B905",   # `zip()` without explicit `strict=`: pre-3.10 callsites,
+              # auditing tracked as 1.2 follow-up
+    "UP007",  # X | Y syntax requires future import on 3.10; deferred
+    "F401",   # unused-import for top-level lazy re-exports (re-checked in tests)
+    "F841",   # unused local: two intentional `_` discards survive in legacy
+              # benchmarks code
+    "C401",   # generator inside set(); single legacy occurrence
+    "C408",   # unnecessary dict() call; single legacy occurrence
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B", "F401"]   # fixture imports + asserts trip these
+"benchmarks/*" = ["B"]
+
+[tool.mypy]
+# Phase-4 punch-list Tier 3.12: gate on the smallest passing surface today.
+# Strict mode is the long-term goal; the CI lint job runs mypy against the
+# slim surface declared in `files=` so the gate is meaningful. The full
+# `neurocomplexity/` tree still has untyped defs in viz/cli/benchmarks
+# (tracked as 1.2 follow-up); the override block below documents that.
+python_version = "3.10"
+files = [
+    "neurocomplexity/_version.py",
+    "neurocomplexity/warnings.py",
+    "neurocomplexity/_warnings.py",
+    "neurocomplexity/core/provenance.py",
+    "neurocomplexity/inference/results.py",
+]
+follow_imports = "silent"
+ignore_missing_imports = true
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unreachable = true
+strict_equality = true
+no_implicit_optional = true
+check_untyped_defs = true
+
+# Documented as 1.2 follow-up: extend mypy coverage to these once their
+# annotations are complete. See `docs/api_stability.md` § "Type annotations".
+[[tool.mypy.overrides]]
+module = [
+    "neurocomplexity.analysis.*",
+    "neurocomplexity.inference.bootstrap",
+    "neurocomplexity.inference.null_test",
+    "neurocomplexity.viz.*",
+    "neurocomplexity.benchmarks.*",
+    "neurocomplexity.io.*",
+    "neurocomplexity.cli",
+]
+disallow_untyped_defs = false
+

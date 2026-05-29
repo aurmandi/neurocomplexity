@@ -2,14 +2,14 @@
 from __future__ import annotations
 
 import warnings as _warnings
-from typing import Literal, Mapping
+from collections.abc import Mapping
+from typing import Literal
 
 import numpy as np
 import pandas as pd
 
 from neurocomplexity.core.provenance import ProvenanceRecord
 from neurocomplexity.core.recording import SpikeRecording
-
 
 AlignLiteral = Literal["max", "min", "strict"]
 

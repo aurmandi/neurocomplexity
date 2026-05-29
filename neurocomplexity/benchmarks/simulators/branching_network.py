@@ -18,8 +18,10 @@ Wilting J, Priesemann V (2018). "Inferring collective dynamical states
 from widely unobserved systems." Nature Communications 9, 2325.
 """
 from __future__ import annotations
+
 import numpy as np
 import pandas as pd
+
 from neurocomplexity.core.recording import SpikeRecording
 
 

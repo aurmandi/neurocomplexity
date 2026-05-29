@@ -12,8 +12,8 @@ Reference:
 """
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Sequence
 
 import numpy as np
 
@@ -152,7 +152,7 @@ def lmc_complexity(rec: SpikeRecording,
       - ``"trajectory"``: sliding-window (H, C) over time; one row per window.
       - ``"both"``: both, returned in a single result.
     """
-    from neurocomplexity._warnings import _warn_if_uncurated, _warn_if_nonstationary
+    from neurocomplexity._warnings import _warn_if_nonstationary, _warn_if_uncurated
     _warn_if_uncurated(rec, "lmc_complexity")
     _warn_if_nonstationary(rec, "lmc_complexity")
     if kind not in _ALLOWED_KIND:

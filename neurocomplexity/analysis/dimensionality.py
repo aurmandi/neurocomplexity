@@ -5,12 +5,11 @@ Bounded in [1, N]. For an isotropic Gaussian PR -> N. For one dominant mode PR -
 """
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Sequence
 
 import numpy as np
 
-from neurocomplexity.analysis._binning import bin_spikes
 from neurocomplexity.core.recording import SpikeRecording
 
 

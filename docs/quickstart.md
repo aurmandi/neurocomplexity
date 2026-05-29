@@ -91,10 +91,18 @@ Benjamini-Hochberg FDR across matrices / vectors:
 
 ```python
 from neurocomplexity.inference import test
-null = test(te, rec, surrogate="spike_dither", n=500, seed=0,
+null = test(te, rec, surrogate="isi_shuffle", n=500, seed=0,
             alternative="greater", fdr=True)
 print(null.p_value_fdr.shape, null.effect_size.shape)
 ```
+
+For TE we recommend `isi_shuffle`: it destroys cross-unit timing while
+preserving each unit's ISI distribution exactly, so a significant TE
+cannot be explained by per-unit rate or burstiness alone. `spike_dither`
+preserves only approximate rates and is too soft a null for connectivity
+inference — the package's calibration suite uses `isi_shuffle` for the
+TE Type-I rate test. See `docs/inference.md` for the full
+"choose your null" table.
 
 Two-sided tests use the conventional `2 * min(p_greater, p_less)` clipped
 at 1, which is robust to skewed null distributions. Available
@@ -104,8 +112,8 @@ Available surrogates:
 
 | Method               | What it preserves                         | When to use |
 |----------------------|-------------------------------------------|-------------|
-| ``spike_dither``     | Per-unit rate (approximately), count      | Default for TE / connectivity |
-| ``isi_shuffle``      | Per-unit ISI distribution exactly         | Strict test against rate-only effects |
+| ``spike_dither``     | Per-unit rate (approximately), count      | Soft rate-only null; suitable for autonomy and exploratory checks |
+| ``isi_shuffle``      | Per-unit ISI distribution exactly         | **Recommended for TE / PID / connectivity** (see "choose your null" in `docs/inference.md`) |
 | ``interval_shuffle`` | Within-interval ordering, trial structure | Trial-based experiments |
 
 ``interval_shuffle`` requires non-overlapping intervals on the recording

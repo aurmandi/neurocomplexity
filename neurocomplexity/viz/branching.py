@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import numpy as np
 
-from neurocomplexity.viz._palettes import get_palette, DEFAULT_PALETTE
-from neurocomplexity.viz._style import _resolve_palette_and_axes, _apply_panel_label
+from neurocomplexity.viz._palettes import DEFAULT_PALETTE
+from neurocomplexity.viz._style import _apply_panel_label, _resolve_palette_and_axes
 
 
 def figure_branching(

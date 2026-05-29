@@ -5,23 +5,27 @@ that re-runs the analysis on `rec` using the same parameters. Used by the
 null-test machinery to evaluate the statistic on surrogate recordings.
 """
 from __future__ import annotations
-from typing import Callable, Any
+
+from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 
-from neurocomplexity.analysis.transfer_entropy import (
-    transfer_entropy, TransferEntropyResult,
-)
-from neurocomplexity.analysis.pid import partial_information, PIDResult
-from neurocomplexity.analysis.branching import wilting_mr, BranchingResult
-from neurocomplexity.analysis.criticality import criticality, CriticalityResult
-from neurocomplexity.analysis.shape_collapse import shape_collapse, ShapeCollapseResult
+from neurocomplexity.analysis.autonomy import AutonomyResult, autonomy
+from neurocomplexity.analysis.branching import BranchingResult, wilting_mr
+from neurocomplexity.analysis.complexity import LMCResult, lmc_complexity
+from neurocomplexity.analysis.criticality import CriticalityResult, criticality
 from neurocomplexity.analysis.dimensionality import (
-    dimensionality, DimensionalityResult,
+    DimensionalityResult,
+    dimensionality,
 )
-from neurocomplexity.analysis.autonomy import autonomy, AutonomyResult
-from neurocomplexity.analysis.complexity import lmc_complexity, LMCResult
-from neurocomplexity.analysis.mse import multiscale_entropy, MSEResult
+from neurocomplexity.analysis.mse import MSEResult, multiscale_entropy
+from neurocomplexity.analysis.pid import PIDResult, partial_information
+from neurocomplexity.analysis.shape_collapse import ShapeCollapseResult, shape_collapse
+from neurocomplexity.analysis.transfer_entropy import (
+    TransferEntropyResult,
+    transfer_entropy,
+)
 
 
 class AdapterError(TypeError):

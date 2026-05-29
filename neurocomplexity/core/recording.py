@@ -10,8 +10,8 @@ trivially cacheable.
 """
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
-from typing import Iterable, Mapping, Sequence
 
 import numpy as np
 import pandas as pd
@@ -53,7 +53,7 @@ class SpikeRecording:
     # Optional uniformly-sampled continuous signals (pupil, running speed,
     # stimulus contrast, photometry, ...) attached for TE / PID analyses
     # via the signals= kwarg. Each must fit inside [0, duration].
-    signals: Mapping[str, "ContinuousSignal"] = field(default_factory=dict)
+    signals: Mapping[str, ContinuousSignal] = field(default_factory=dict)
     # Set to True by filter_units so downstream analysis entry points can
     # emit a QualityControlWarning when operating on an already-filtered rec.
     _filtered: bool = False
@@ -109,7 +109,7 @@ class SpikeRecording:
     # ---- builder pattern (immutable) ----
 
     def filter_units(self, query: str | None = None,
-                     **criteria) -> "SpikeRecording":
+                     **criteria) -> SpikeRecording:
         """Keep only units whose metadata matches the given conditions.
 
         Two forms are supported (and may be combined):
@@ -161,7 +161,7 @@ class SpikeRecording:
                        _filtered=True)
 
     def with_populations(self, definition=None, *, by: str | None = None,
-                         on_unassigned: str = "error") -> "SpikeRecording":
+                         on_unassigned: str = "error") -> SpikeRecording:
         """Define populations either by a units-metadata column (`by=`) or by an explicit dict."""
         if by is not None and definition is not None:
             raise PopulationError("pass either `definition` OR `by=`, not both")
@@ -208,7 +208,7 @@ class SpikeRecording:
 
         return replace(self, populations=pops)
 
-    def with_signal(self, name: str, signal: ContinuousSignal) -> "SpikeRecording":
+    def with_signal(self, name: str, signal: ContinuousSignal) -> SpikeRecording:
         """Return a new recording with ``signal`` attached under ``name``.
 
         Replaces an existing signal of the same name. The signal must fit
@@ -222,7 +222,7 @@ class SpikeRecording:
         new_signals[str(name)] = signal
         return replace(self, signals=new_signals)
 
-    def crop(self, start: float, end: float) -> "SpikeRecording":
+    def crop(self, start: float, end: float) -> SpikeRecording:
         if not (0 <= start < end):
             raise RecordingValidationError(f"invalid crop window [{start}, {end})")
         end = min(end, self.duration)
@@ -232,7 +232,7 @@ class SpikeRecording:
         return replace(self, spike_times=new_st, unit_ids=new_uid,
                        duration=end - start)
 
-    def crop_to_intervals(self, intervals) -> "SpikeRecording":
+    def crop_to_intervals(self, intervals) -> SpikeRecording:
         """Concatenate only the time spans listed in ``intervals``.
 
         ``intervals`` is either the *name* of a table in ``self.intervals``
@@ -308,7 +308,7 @@ class SpikeRecording:
         recordings,  # Mapping[str, SpikeRecording]
         *,
         align_durations: str = "max",
-    ) -> "SpikeRecording":
+    ) -> SpikeRecording:
         """Merge per-probe recordings into a single SpikeRecording.
 
         Each unit's ``id`` is recoded to a fresh sequential int64 in the
@@ -330,7 +330,7 @@ class SpikeRecording:
 
     def classify_cell_type(self, method: str = "waveform_duration",
                             *, threshold_ms: float = 0.4,
-                            column: str | None = None) -> "SpikeRecording":
+                            column: str | None = None) -> SpikeRecording:
         """Add an ``ei_class`` column to ``self.units``.
 
         method="waveform_duration" (the only one implemented in v1.0):

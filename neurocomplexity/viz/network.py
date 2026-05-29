@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from neurocomplexity.analysis.transfer_entropy import TransferEntropyResult
-from neurocomplexity.viz._palettes import get_palette, DEFAULT_PALETTE
+from neurocomplexity.viz._palettes import DEFAULT_PALETTE, get_palette
 
 
 def _categorical_colors(palette_name: str, n: int) -> list[str]:

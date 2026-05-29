@@ -13,9 +13,10 @@ n_reps``. The full per-case ``metadata`` dict is dropped from the tabular
 form; users wanting the inner detail should call :func:`run_case`.
 """
 from __future__ import annotations
-from dataclasses import dataclass, field, asdict
+
 import time
-from typing import Callable
+from collections.abc import Callable
+from dataclasses import asdict, dataclass, field
 
 import pandas as pd
 
@@ -75,7 +76,10 @@ def register(name: str):
 def _ensure_cases_loaded() -> None:
     """Import case modules so their @register decorators fire."""
     from neurocomplexity.benchmarks.cases import (  # noqa: F401
-        criticality, info_theory, pid, dimensionality,
+        criticality,
+        dimensionality,
+        info_theory,
+        pid,
     )
 
 

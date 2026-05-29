@@ -6,7 +6,7 @@ in ``inference`` and ``analysis`` will then show a transient ``tqdm`` bar.
 """
 from __future__ import annotations
 
-from typing import Iterable, Optional
+from collections.abc import Iterable
 
 _enabled: bool = False
 
@@ -28,8 +28,8 @@ def set_progress(enabled: bool) -> None:
     _enabled = bool(enabled)
 
 
-def progress_iter(iterable: Iterable, *, total: Optional[int] = None,
-                  desc: Optional[str] = None):
+def progress_iter(iterable: Iterable, *, total: int | None = None,
+                  desc: str | None = None):
     """Wrap iterable with tqdm if progress is enabled, otherwise pass through.
 
     Bars use ``leave=False`` so they vanish on completion, keeping notebook

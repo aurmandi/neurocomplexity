@@ -1,0 +1,51 @@
+name: calibration
+
+on:
+  schedule:
+    # 07:00 UTC daily
+    - cron: '0 7 * * *'
+  workflow_dispatch:
+    inputs:
+      full:
+        description: 'Run FULL calibration (slow)'
+        required: false
+        default: 'false'
+
+jobs:
+  calibration:
+    name: calibration suite + report
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install package + deps
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev,nwb,viz]"
+      - name: Run calibration tests (slow)
+        env:
+          CALIBRATION_FULL: ${{ github.event.inputs.full == 'true' && '1' || '0' }}
+        run: |
+          python -m pytest -m slow tests/test_inference_calibration.py -q
+      - name: Generate calibration report
+        env:
+          CALIBRATION_FULL: ${{ github.event.inputs.full == 'true' && '1' || '0' }}
+        run: |
+          python scripts/generate_calibration_report.py
+      - name: Diff report vs. committed copy
+        run: |
+          if ! git diff --quiet docs/calibration_report.md; then
+            echo "::warning::docs/calibration_report.md differs from the committed copy"
+            git --no-pager diff docs/calibration_report.md | head -120
+          fi
+      - name: Upload report artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: calibration-report
+          path: docs/calibration_report.md
+          retention-days: 30

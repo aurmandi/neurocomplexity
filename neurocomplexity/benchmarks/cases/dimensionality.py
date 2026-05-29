@@ -1,11 +1,13 @@
 """Dimensionality benchmark: participation ratio recovers latent covariance rank."""
 from __future__ import annotations
+
 import time
+
 import numpy as np
 
 from neurocomplexity.analysis.dimensionality import dimensionality
-from neurocomplexity.benchmarks.simulators.structured_covariance import rank_r_population
 from neurocomplexity.benchmarks.runner import BenchmarkResult, register
+from neurocomplexity.benchmarks.simulators.structured_covariance import rank_r_population
 
 
 @register("dimensionality.pr_rank")

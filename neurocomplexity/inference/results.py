@@ -1,7 +1,9 @@
 """Container for the output of inference procedures (null tests, bootstrap)."""
 from __future__ import annotations
-from dataclasses import dataclass, asdict, field
+
+from dataclasses import asdict, dataclass, field
 from typing import Any
+
 import numpy as np
 
 

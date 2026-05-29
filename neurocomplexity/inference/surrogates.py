@@ -6,7 +6,9 @@ References:
     Parallel Spike Trains, Springer, pp. 359-382.
 """
 from __future__ import annotations
+
 from dataclasses import replace
+
 import numpy as np
 
 from neurocomplexity.core.recording import SpikeRecording

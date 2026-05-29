@@ -11,9 +11,9 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 
 from neurocomplexity.viz._palettes import (
-    PALETTES, DEFAULT_PALETTE, get_palette,
+    DEFAULT_PALETTE,
+    get_palette,
 )
-
 
 _CURRENT = {"name": DEFAULT_PALETTE}
 
@@ -107,7 +107,6 @@ def panel_label(ax, letter: str, *, x: float = -0.07, y: float = 1.02) -> None:
 
 def _resolve_palette_and_axes(*, palette, ax, figsize, default_size):
     """Common entry-point boilerplate shared by every figure_X function."""
-    import matplotlib.pyplot as plt
     p = get_palette(palette)
     if ax is None:
         size = figsize if figsize is not None else default_size

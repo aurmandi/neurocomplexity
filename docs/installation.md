@@ -22,7 +22,7 @@ pip install -e ".[dev,docs]"
 
 ## Supported Python versions
 
-3.10, 3.11, 3.12. Tested on Linux, macOS, and Windows in CI.
+3.10, 3.11, 3.12, 3.13. Tested on Linux, macOS, and Windows in CI.
 
 ## Optional dependencies
 

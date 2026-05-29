@@ -6,7 +6,6 @@ from typing import Literal
 import matplotlib.axes
 import matplotlib.lines as mlines
 
-
 _LOCATIONS = {
     "lower right": (0.95, 0.05),
     "lower left":  (0.05, 0.05),

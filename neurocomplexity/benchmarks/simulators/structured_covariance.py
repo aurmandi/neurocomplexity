@@ -11,8 +11,10 @@ Reference:
     011903.
 """
 from __future__ import annotations
+
 import numpy as np
 import pandas as pd
+
 from neurocomplexity.core.recording import SpikeRecording
 
 

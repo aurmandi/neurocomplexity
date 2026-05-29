@@ -6,13 +6,17 @@ with reproducible per-draw seeds derived from a single master seed via
 LRU cache so re-accessing the same index does not regenerate the data.
 """
 from __future__ import annotations
+
 from collections import OrderedDict
 from typing import Any
+
 import numpy as np
 
 from neurocomplexity.core.recording import SpikeRecording
 from neurocomplexity.inference.surrogates import (
-    spike_dither, isi_shuffle, interval_shuffle,
+    interval_shuffle,
+    isi_shuffle,
+    spike_dither,
 )
 
 _METHODS = {

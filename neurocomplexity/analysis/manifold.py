@@ -13,8 +13,8 @@ References:
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Sequence
 
 import numpy as np
 
@@ -279,7 +279,7 @@ def manifold(rec: SpikeRecording,
     * Gallego JA et al. (2018). *Cortical population activity within a
       preserved neural manifold...* Nat Commun 9:4233.
     """
-    from neurocomplexity._warnings import _warn_if_uncurated, _warn_if_nonstationary
+    from neurocomplexity._warnings import _warn_if_nonstationary, _warn_if_uncurated
 
     _warn_if_uncurated(rec, "manifold")
     _warn_if_nonstationary(rec, "manifold")

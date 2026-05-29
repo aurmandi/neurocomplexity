@@ -12,13 +12,14 @@ Williams PL, Beer RD (2010). "Nonnegative decomposition of multivariate
 information." arXiv:1004.2515. Table 2.
 """
 from __future__ import annotations
+
 import time
+
 import numpy as np
 
 from neurocomplexity.analysis.pid import partial_information
-from neurocomplexity.benchmarks.simulators.pid_distributions import pid_recording
 from neurocomplexity.benchmarks.runner import BenchmarkResult, register
-
+from neurocomplexity.benchmarks.simulators.pid_distributions import pid_recording
 
 # Ground-truth atom values in NATS (natural-log units, matching the analysis
 # output). Williams-Beer (2010) Table 2 reports atoms in bits; multiply by

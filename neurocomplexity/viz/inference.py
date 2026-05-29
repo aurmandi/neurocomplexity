@@ -44,11 +44,10 @@ and share the standard ``palette=`` / ``panel_label=`` / ``figsize=`` /
 from __future__ import annotations
 
 import numpy as np
-import matplotlib.pyplot as plt
 
 from neurocomplexity.inference.results import InferenceResult
-from neurocomplexity.viz._palettes import get_palette, DEFAULT_PALETTE
-from neurocomplexity.viz._style import _resolve_palette_and_axes, _apply_panel_label
+from neurocomplexity.viz._palettes import DEFAULT_PALETTE
+from neurocomplexity.viz._style import _apply_panel_label, _resolve_palette_and_axes
 
 
 def _as_scalar(x):

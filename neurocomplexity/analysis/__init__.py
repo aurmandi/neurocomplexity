@@ -31,34 +31,38 @@ Sub-modules
 - :mod:`~neurocomplexity.analysis.stationarity` — population-level
   stationarity diagnostics.
 """
-from neurocomplexity.analysis.criticality import criticality, CriticalityResult
-from neurocomplexity.analysis.transfer_entropy import (
-    transfer_entropy,
-    TransferEntropyResult,
+from neurocomplexity.analysis.autonomy import AutonomyResult, autonomy
+from neurocomplexity.analysis.branching import BranchingResult, branching_ratio, wilting_mr
+from neurocomplexity.analysis.complexity import LMCResult, lmc_complexity
+from neurocomplexity.analysis.criticality import (
+    CriticalityResult,
+    bin_size_sweep,
+    criticality,
 )
-from neurocomplexity.analysis.autonomy import autonomy, AutonomyResult
 from neurocomplexity.analysis.dimensionality import (
-    dimensionality,
     DimensionalityResult,
+    dimensionality,
 )
-from neurocomplexity.analysis.branching import wilting_mr, branching_ratio, BranchingResult
+from neurocomplexity.analysis.manifold import ManifoldResult, manifold
+from neurocomplexity.analysis.mse import MSEResult, multiscale_entropy
+from neurocomplexity.analysis.pid import PIDResult, partial_information
 from neurocomplexity.analysis.shape_collapse import (
-    shape_collapse,
     ShapeCollapseResult,
+    shape_collapse,
 )
-from neurocomplexity.analysis.pid import partial_information, PIDResult
+from neurocomplexity.analysis.stationarity import StationarityResult, stationarity
 from neurocomplexity.analysis.surrogates import (
-    make_surrogate,
     jitter_recording,
+    make_surrogate,
     shuffle_isis,
 )
-from neurocomplexity.analysis.stationarity import stationarity, StationarityResult
-from neurocomplexity.analysis.complexity import lmc_complexity, LMCResult
-from neurocomplexity.analysis.mse import multiscale_entropy, MSEResult
-from neurocomplexity.analysis.manifold import manifold, ManifoldResult
+from neurocomplexity.analysis.transfer_entropy import (
+    TransferEntropyResult,
+    transfer_entropy,
+)
 
 __all__ = [
-    "criticality", "CriticalityResult",
+    "criticality", "CriticalityResult", "bin_size_sweep",
     "transfer_entropy", "TransferEntropyResult",
     "autonomy", "AutonomyResult",
     "dimensionality", "DimensionalityResult",

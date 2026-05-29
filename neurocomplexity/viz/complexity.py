@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from neurocomplexity.analysis.complexity import LMCResult
-from neurocomplexity.viz._palettes import get_palette, DEFAULT_PALETTE
+from neurocomplexity.viz._palettes import DEFAULT_PALETTE, get_palette
 
 
 def _pop_colors(palette_name: str, n: int) -> list[str]:

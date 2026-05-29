@@ -1,5 +1,12 @@
 # API reference
 
+This page documents the **stable public surface** covered by SemVer. See
+[`docs/api_stability.md`](../api_stability.md) for the contract,
+deprecation policy, and the list of *experimental* re-exports
+(`ContinuousSignal`, `ProvenanceRecord`, `set_progress`,
+`estimate_bin_spikes_bytes`, `neurocomplexity.warnings` private state)
+that are intentionally **not** in the SemVer-covered surface.
+
 ## Core data types
 
 ```{eval-rst}
@@ -80,5 +87,35 @@
 
 ```{eval-rst}
 .. automodule:: neurocomplexity.benchmarks.runner
+   :members:
+```
+
+## Experimental re-exports
+
+These are importable from the top-level namespace but are **not** covered
+by SemVer. See [`docs/api_stability.md`](../api_stability.md) for the
+rationale.
+
+```{eval-rst}
+.. automodule:: neurocomplexity.core.continuous
+   :members:
+
+.. automodule:: neurocomplexity.core.provenance
+   :members:
+
+.. automodule:: neurocomplexity._progress
+   :members:
+
+.. automodule:: neurocomplexity.analysis._binning
+   :members: estimate_bin_spikes_bytes
+
+.. automodule:: neurocomplexity.warnings
+   :members:
+```
+
+## Visualisation
+
+```{eval-rst}
+.. automodule:: neurocomplexity.viz
    :members:
 ```

@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import warnings as _pywarnings
 from dataclasses import dataclass, field
-from typing import Tuple
 
 import numpy as np
 from scipy import stats
@@ -83,7 +82,7 @@ class StationarityResult:
     window_s: float
     params: dict = field(default_factory=dict)
     is_stationary: bool = True
-    flags: Tuple[str, ...] = ()
+    flags: tuple[str, ...] = ()
 
 
 def _population_rate_per_window(rec: SpikeRecording, window_s: float

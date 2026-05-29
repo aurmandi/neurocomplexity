@@ -1,8 +1,8 @@
 # neurocomplexity
 
 [![tests](https://github.com/aurmandi/neurocomplexity/actions/workflows/test.yml/badge.svg)](https://github.com/aurmandi/neurocomplexity/actions/workflows/test.yml)
-[![codecov](https://codecov.io/gh/aurmandi/neurocomplexity/branch/master/graph/badge.svg)](https://codecov.io/gh/aurmandi/neurocomplexity)
-[![python](https://img.shields.io/badge/python-3.10%E2%80%933.12-blue)](https://www.python.org/)
+[![codecov](https://codecov.io/gh/aurmandi/neurocomplexity/branch/main/graph/badge.svg)](https://codecov.io/gh/aurmandi/neurocomplexity)
+[![python](https://img.shields.io/badge/python-3.10%E2%80%933.13-blue)](https://www.python.org/)
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 A Python package for measuring complexity, criticality and information flow in
@@ -118,7 +118,7 @@ about state.
         --target VISp --sources LGd CA1 \
         -o results/session/
 
-That writes a `results.json` and a set of PDF/SVG/PNG figures (one composite
+That writes a `results.json` and a set of SVG/TIFF/JPG figures (one composite
 overview plus five per-analysis panels) into the output directory. If you
 just want to re-render the figures from a cached run, `neurocomplexity figure
 results.json -o new_figures/` does that without re-loading the NWB.

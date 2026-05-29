@@ -36,7 +36,7 @@ _SCRATCH_PAYLOAD = "nc_payload"
 _SCRATCH_PROVENANCE = "nc_provenance_json"
 
 
-def to_nwb(rec: "SpikeRecording", path: str | Path, *,
+def to_nwb(rec: SpikeRecording, path: str | Path, *,
            session_description: str = "neurocomplexity recording",
            identifier: str | None = None,
            session_start_time=None,
@@ -49,6 +49,7 @@ def to_nwb(rec: "SpikeRecording", path: str | Path, *,
     """
     import datetime as _dt
     import uuid as _uuid
+
     import pynwb
     from pynwb import NWBHDF5IO, NWBFile
     from pynwb.epoch import TimeIntervals
@@ -143,7 +144,7 @@ def to_nwb(rec: "SpikeRecording", path: str | Path, *,
     return path
 
 
-def read_nc_payload(nwb) -> "SpikeRecording | None":
+def read_nc_payload(nwb) -> SpikeRecording | None:
     """If this NWBFile carries a neurocomplexity scratch payload, reconstruct
     and return the original ``SpikeRecording``. Otherwise return None.
     """

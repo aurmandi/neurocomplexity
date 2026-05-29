@@ -174,3 +174,55 @@ def test_empty_recording_returns_all_nan_with_new_fields():
     assert np.isnan(r.gamma_fit)
     assert np.isnan(r.gamma_predicted)
     assert np.isnan(r.kappa)
+
+
+# ---- Tier 4 bin-selection lockdown (Phase 4 punch-list) -----------------
+
+def test_scalar_bin_no_sweep():
+    """Scalar `bin_size_ms` runs a single-bin fit and records it as such.
+
+    Guards Tier 4.14: no R²-shopping on the headline result when the
+    user pre-specifies a bin.
+    """
+    rec = _critical_branching_rec()
+    with _warnings.catch_warnings():
+        _warnings.simplefilter("ignore")
+        r = criticality(rec, populations=["all"], bin_size_ms=4.0)
+    assert np.isclose(r.optimal_bin_seconds, 0.004)
+    assert len(r.fits) == 1
+    assert r.params["bin_selection"] == "single"
+
+
+def test_sequence_bin_warns_and_records_full_table():
+    """Sequence `bin_size_ms` still works but emits forking-path warning.
+
+    The `.fits` attribute exposes every bin's exponents so a reviewer can
+    audit the R²-driven selection.
+    """
+    rec = _critical_branching_rec()
+    with _warnings.catch_warnings(record=True) as caught:
+        _warnings.simplefilter("always")
+        r = criticality(rec, populations=["all"], bin_size_ms=(2, 4, 8, 16))
+    msgs = [str(w.message) for w in caught
+            if "forking path" in str(w.message)]
+    assert msgs, [str(w.message) for w in caught]
+    assert r.params["bin_selection"] == "r2_sweep"
+    # Every attempted bin with ≥10 avalanches is in fits.
+    bins_seen = {f["bin_seconds"] for f in r.fits}
+    assert 0.004 in bins_seen
+    # The optimal bin is one of the swept bins.
+    assert any(np.isclose(r.optimal_bin_seconds, b) for b in bins_seen)
+
+
+def test_bin_size_sweep_standalone():
+    """`bin_size_sweep` returns the per-bin table without picking a winner."""
+    from neurocomplexity.analysis.criticality import bin_size_sweep
+    rec = _critical_branching_rec()
+    with _warnings.catch_warnings():
+        _warnings.simplefilter("ignore")
+        rows = bin_size_sweep(rec, populations=["all"],
+                              bin_size_ms=(2, 4, 8))
+    assert isinstance(rows, tuple)
+    assert all("alpha_s" in r and "r_squared" in r and "n_avalanches" in r
+               for r in rows)
+    assert len(rows) >= 1

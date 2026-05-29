@@ -75,7 +75,10 @@ spike-count time series.
 
 **Limitations:** requires enough data for sample entropy to be well-estimated
 at the longest scale (rule of thumb: N ≥ 10^(m+1) at scale τ_max).
-Sensitive to the choice of `m` (default 2) and `r_factor` (default 0.15·SD).
+Sensitive to the choice of `m` (default 2) and `r_factor` (default 0.2·SD,
+the Pincus 1991 / Richman & Moorman 2000 convention; Costa et al. 2002
+reported MSE curves with r = 0.15·SD on physiologic time series — pass
+`r_factor=0.15` to reproduce the Costa choice).
 
 ## When the two disagree
 
@@ -88,6 +91,38 @@ Sensitive to the choice of `m` (default 2) and `r_factor` (default 0.15·SD).
 
 Both situations are scientifically interesting and report different facts.
 This is why we expose both rather than picking one.
+
+## Williams-Beer I_min limitation (PID redundancy)
+
+`nc.analysis.partial_information` uses the Williams & Beer (2010) `I_min`
+redundancy functional. `I_min` is the *only* closed-form redundancy on
+three variables for which the PID identities admit non-negative atoms in
+the general discrete case, which is why it is the default. It has one
+well-known failure mode that users must understand before reading the
+output:
+
+- `I_min` measures redundancy as the *minimum* specific information any
+  single source carries about each target outcome and then aggregates
+  across outcomes. When the two sources carry information about *different*
+  target outcomes — i.e. they are non-overlapping channels — `I_min`
+  still reports a positive redundancy because each source non-trivially
+  reduces uncertainty about the *outcomes it is informative about*.
+- Consequently, **`PIDResult.redundancy` is an upper bound on the true
+  shared information**, and `PIDResult.synergy` (derived as the residual
+  via the PID identities) is correspondingly biased *downward*.
+- This is a property of `I_min`, not of this implementation. Bertschinger
+  et al. (2014, *Entropy* 16, 2161) proposed the BROJA decomposition,
+  which fixes the issue by optimising over the cone of distributions
+  preserving the source-marginal-to-target conditional distributions.
+  BROJA is convex but solved numerically; it is on the package roadmap.
+
+**Practical guidance.** If the two source populations plausibly encode
+different aspects of the target — common in cortex, where neighbouring
+areas often have orthogonal receptive fields — interpret a high
+`redundancy` as the *largest* it could be and the corresponding `synergy`
+as the *smallest* it could be. Re-run with the populations swapped as a
+sanity check; the four atoms are symmetric in the two sources by
+construction.
 
 ## See also
 

@@ -24,9 +24,7 @@ def _hex_to_rgb(h: str) -> tuple[float, float, float]:
 
 
 def _rgb_to_hex(r: float, g: float, b: float) -> str:
-    return "#{:02X}{:02X}{:02X}".format(
-        int(round(r * 255)), int(round(g * 255)), int(round(b * 255))
-    )
+    return f"#{int(round(r * 255)):02X}{int(round(g * 255)):02X}{int(round(b * 255)):02X}"
 
 
 def _lighten(hex_color: str, target_l: float = 0.75) -> str:

@@ -5,7 +5,11 @@ ground truth and a set of benchmark cases that compare each analysis in
 the package against that truth. See ``docs/benchmarks.md``.
 """
 from neurocomplexity.benchmarks.runner import (
-    BenchmarkResult, list_cases, register, run_case, run_all,
+    BenchmarkResult,
+    list_cases,
+    register,
+    run_all,
+    run_case,
 )
 
 __all__ = [

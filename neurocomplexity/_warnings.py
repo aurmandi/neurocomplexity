@@ -55,7 +55,7 @@ def _reset_dedup() -> None:
     _seen.clear()
 
 
-def _warn_if_uncurated(rec: "SpikeRecording", analysis_name: str) -> None:
+def _warn_if_uncurated(rec: SpikeRecording, analysis_name: str) -> None:
     if rec._filtered:
         return
     cols = set(rec.units.columns)
@@ -88,7 +88,7 @@ def _reset_stationarity_dedup() -> None:
     _stationarity_seen.clear()
 
 
-def _warn_if_nonstationary(rec: "SpikeRecording", analysis_name: str) -> None:
+def _warn_if_nonstationary(rec: SpikeRecording, analysis_name: str) -> None:
     """Run a default ``stationarity`` check and warn once if non-stationary."""
     key = (id(rec), analysis_name)
     if key in _stationarity_seen:

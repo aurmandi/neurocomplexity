@@ -1,14 +1,16 @@
 """Information-theory benchmark cases: TE convergence, TE null, autonomy calibration."""
 from __future__ import annotations
+
 import time
+
 import numpy as np
 import pandas as pd
 
-from neurocomplexity.core.recording import SpikeRecording
-from neurocomplexity.analysis.transfer_entropy import transfer_entropy
 from neurocomplexity.analysis.autonomy import autonomy
-from neurocomplexity.benchmarks.simulators.ar_processes import coupled_ar1, var1
+from neurocomplexity.analysis.transfer_entropy import transfer_entropy
 from neurocomplexity.benchmarks.runner import BenchmarkResult, register
+from neurocomplexity.benchmarks.simulators.ar_processes import coupled_ar1, var1
+from neurocomplexity.core.recording import SpikeRecording
 
 
 def _ar_to_recording(

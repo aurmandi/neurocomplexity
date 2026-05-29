@@ -20,8 +20,10 @@ Williams PL, Beer RD (2010). "Nonnegative decomposition of multivariate
 information." arXiv:1004.2515.
 """
 from __future__ import annotations
+
 import numpy as np
 import pandas as pd
+
 from neurocomplexity.core.recording import SpikeRecording
 
 

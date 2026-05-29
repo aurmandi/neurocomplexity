@@ -73,6 +73,38 @@ def test_bootstrap_dispatch_pr():
     assert inf.bootstrap_distribution.shape == (10,)
 
 
+def test_bootstrap_warns_when_block_too_large():
+    """Tier 2.9 — block bootstrap must warn when too few unique blocks.
+
+    Guard against the silent under-coverage mode flagged by Phase 4
+    Reviewer B P0-3. A 60s recording with 20s blocks → 3 unique blocks
+    triggers the warning.
+    """
+    import warnings
+    rec = _rec_for_avalanches()
+    r = wilting_mr(rec, bin_size_ms=4, k_max=30)
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        bootstrap_branching_ratio(r, rec, n=5, seed=0, block_seconds=20.0)
+    msgs = [str(w.message) for w in caught
+            if issubclass(w.category, UserWarning)]
+    assert any("unique block" in m for m in msgs), msgs
+
+
+def test_bootstrap_no_warning_with_reasonable_blocks():
+    """No spurious warning when block size is comfortably small."""
+    import warnings
+    rec = _rec_for_avalanches()
+    r = wilting_mr(rec, bin_size_ms=4, k_max=30)
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        bootstrap_branching_ratio(r, rec, n=5, seed=0, block_seconds=2.0)
+    msgs = [str(w.message) for w in caught
+            if issubclass(w.category, UserWarning)
+            and "unique block" in str(w.message)]
+    assert msgs == [], msgs
+
+
 def test_bootstrap_dispatch_unknown_raises():
     class Foo: ...
     with pytest.raises(TypeError):

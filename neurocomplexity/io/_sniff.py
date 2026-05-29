@@ -5,10 +5,7 @@ try detectors in priority order (most-specific first) and return the first hit.
 """
 from __future__ import annotations
 
-from typing import Optional
-
 import pandas as pd
-
 
 # --- QC detectors ----------------------------------------------------------
 
@@ -20,17 +17,17 @@ _ECEPHYS_REQUIRED = {"cluster_id", "isi_viol", "amplitude_cutoff", "presence_rat
 _SI_REQUIRED = {"isi_violations_ratio", "presence_ratio"}
 
 
-def _detect_bombcell(df: pd.DataFrame) -> Optional[str]:
+def _detect_bombcell(df: pd.DataFrame) -> str | None:
     cols = set(df.columns)
     return "bombcell" if _BOMBCELL_REQUIRED.issubset(cols) else None
 
 
-def _detect_ecephys(df: pd.DataFrame) -> Optional[str]:
+def _detect_ecephys(df: pd.DataFrame) -> str | None:
     cols = set(df.columns)
     return "ecephys" if _ECEPHYS_REQUIRED.issubset(cols) else None
 
 
-def _detect_spikeinterface(df: pd.DataFrame) -> Optional[str]:
+def _detect_spikeinterface(df: pd.DataFrame) -> str | None:
     cols = set(df.columns)
     if not _SI_REQUIRED.issubset(cols):
         return None
@@ -40,7 +37,7 @@ def _detect_spikeinterface(df: pd.DataFrame) -> Optional[str]:
     return "spikeinterface"
 
 
-def sniff_qc_format(df: pd.DataFrame) -> Optional[str]:
+def sniff_qc_format(df: pd.DataFrame) -> str | None:
     """Try detectors in priority order; return the first matching format name."""
     for detector in (_detect_bombcell, _detect_ecephys, _detect_spikeinterface):
         result = detector(df)
@@ -55,24 +52,24 @@ _BRAINGLOBE_REQUIRED = {"Channel", "Brain region acronym", "Brain region"}
 _PINPOINT_REQUIRED = {"area", "coordinates"}  # JSON loaded into a DataFrame
 
 
-def _detect_brainglobe(df: pd.DataFrame) -> Optional[str]:
+def _detect_brainglobe(df: pd.DataFrame) -> str | None:
     cols = set(df.columns)
     return "brainglobe" if _BRAINGLOBE_REQUIRED.issubset(cols) else None
 
 
-def _detect_pinpoint(df: pd.DataFrame) -> Optional[str]:
+def _detect_pinpoint(df: pd.DataFrame) -> str | None:
     cols = set(df.columns)
     return "pinpoint" if _PINPOINT_REQUIRED.issubset(cols) else None
 
 
-def _detect_csv(df: pd.DataFrame) -> Optional[str]:
+def _detect_csv(df: pd.DataFrame) -> str | None:
     cols = {c.lower() for c in df.columns}
     if "channel" in cols and ("area" in cols or "brain_area" in cols):
         return "csv"
     return None
 
 
-def sniff_anatomy_format(df: pd.DataFrame) -> Optional[str]:
+def sniff_anatomy_format(df: pd.DataFrame) -> str | None:
     """Detect anatomy-file format from column names alone.
 
     Returns one of ``"brainglobe"``, ``"pinpoint"``, ``"csv"``, or ``None``

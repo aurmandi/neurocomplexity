@@ -40,3 +40,70 @@ jobs:
           files: ./coverage.xml
           flags: unittests
           fail_ci_if_error: false
+
+  lint:
+    name: ruff + mypy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install lint deps + package
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]" mypy
+      - name: ruff check
+        run: python -m ruff check neurocomplexity/
+      - name: mypy (slim surface; see pyproject.toml [tool.mypy])
+        run: python -m mypy
+
+  lock-install:
+    name: install from requirements-lock.txt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install pinned deps + package without resolver
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-lock.txt
+          python -m pip install --no-deps -e .
+      - name: Smoke import + CLI version
+        run: |
+          python -c "import neurocomplexity as nc; print('nc', nc.__version__)"
+          python -m neurocomplexity --version
+      - name: Run a fast subset of the tests
+        run: |
+          python -m pytest tests/test_invariants.py tests/test_reproducibility.py -q
+
+  version-consistency:
+    name: version strings agree
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check pyproject == _version == CITATION
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install tomli pyyaml
+          python - <<'PY'
+          import tomli, yaml, sys, re, pathlib
+          root = pathlib.Path(".")
+          pyproj = tomli.loads((root/"pyproject.toml").read_text())["project"]["version"]
+          vermod = re.search(r'__version__\s*=\s*"([^"]+)"',
+                             (root/"neurocomplexity/_version.py").read_text()).group(1)
+          cff = yaml.safe_load((root/"CITATION.cff").read_text())["version"]
+          print(f"pyproject={pyproj}  _version={vermod}  CITATION.cff={cff}")
+          if not (pyproj == vermod == str(cff)):
+              sys.exit(f"version drift: {pyproj!r} {vermod!r} {cff!r}")
+          PY

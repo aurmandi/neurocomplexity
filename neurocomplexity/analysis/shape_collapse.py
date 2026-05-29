@@ -9,8 +9,8 @@ continuous optimiser (and a grid pre-scan to seed the bracket).
 """
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Sequence
 
 import numpy as np
 from scipy.optimize import minimize_scalar
@@ -145,7 +145,7 @@ def shape_collapse(rec: SpikeRecording,
     * Friedman N et al. (2012). *Universal critical dynamics in high
       resolution neuronal avalanche data.* Phys Rev Lett 108:208102.
     """
-    from neurocomplexity._warnings import _warn_if_uncurated, _warn_if_nonstationary
+    from neurocomplexity._warnings import _warn_if_nonstationary, _warn_if_uncurated
     _warn_if_uncurated(rec, "shape_collapse")
     _warn_if_nonstationary(rec, "shape_collapse")
     if populations is None:

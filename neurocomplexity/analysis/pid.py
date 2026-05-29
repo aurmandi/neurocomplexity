@@ -25,8 +25,8 @@ Miller G. (1955). Note on the bias of information estimates.
 """
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Sequence
 
 import numpy as np
 
@@ -45,8 +45,19 @@ class PIDResult:
     Attributes
     ----------
     redundancy
-        Information about ``target`` carried by **both** sources
-        (Williams-Beer ``I_min``).
+        Information about ``target`` carried by **both** sources, estimated
+        by the Williams & Beer (2010) ``I_min`` redundancy functional.
+        **Known limitation.** ``I_min`` measures redundancy as the *minimum*
+        specific information any source carries about each target outcome
+        and therefore *upper-bounds* the redundant information when sources
+        carry information about *different* target outcomes. Synergy
+        reported by this estimator is correspondingly biased downward.
+        See ``docs/complexity_measures.md`` § "Williams-Beer I_min
+        limitation" and Bertschinger et al. (2014, *Entropy* 16) for the
+        BROJA alternative. The estimator is retained because it is the
+        only PID with a closed form on three variables; treat large
+        ``redundancy`` values cautiously when sources are likely to encode
+        different aspects of the target.
     unique_1, unique_2
         Information about ``target`` carried by source 1 (resp. source 2)
         and not by the other.

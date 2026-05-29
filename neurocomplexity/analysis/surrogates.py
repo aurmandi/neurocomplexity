@@ -6,7 +6,9 @@ Will be removed in v2.0.
 import warnings
 
 from neurocomplexity.inference.surrogates import (
-    spike_dither, isi_shuffle, interval_shuffle,
+    interval_shuffle,
+    isi_shuffle,
+    spike_dither,
 )
 
 
