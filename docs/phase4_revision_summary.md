@@ -37,10 +37,29 @@ Every P0 (Tiers 1–4) is addressed; the verification suite is green.
 |---|---|---|
 | 14 | `criticality()` no longer R²-shops on the default invocation: `bin_size_ms` is a scalar (default 4 ms); passing a sequence is still allowed but emits a forking-path `UserWarning` and exposes every fit in `CriticalityResult.fits`; standalone `bin_size_sweep` added | `analysis/criticality.py:208` + new `bin_size_sweep`, `docs/decisions/2026-05-29-criticality-bin-selection.md` (new), three new tests in `tests/test_analysis_criticality.py` |
 
+## Tier 5 — P1 revisions (closed: 11/11 = 100%)
+
+| # | Item | Landing |
+|---|---|---|
+| 15 | `transfer_entropy(bias=...)` exposes `none` / `miller_madow` (default) / `roulston` `(m_X−1)(m_Y−1)/(2N)`; per-branch correction in `_binary_schreiber_te` | `analysis/transfer_entropy.py` `_binary_schreiber_te`, `transfer_entropy` params + `params["bias"]` |
+| 16 | Warning-dedup keyed on `(rec.source.source_hash, analysis_name)` not `id(rec)`; public `nc.warnings.reset()`; `threading.Lock` guards dedup sets | `_warnings.py` `_dedup_key`/`_dedup_lock`/`reset`, `warnings.py` re-export |
+| 17 | `transfer_entropy(n_jobs=1)` dispatches the P² pair loop via `joblib.Parallel`; O(P²·T) complexity documented | `analysis/transfer_entropy.py` `transfer_entropy`, `params["n_jobs"]` |
+| 18 | `--json` mode on `cli.py` `info`/`analyze`: JSON to stdout, human progress to stderr via `_logger(args)` | `cli.py` `_logger`, `cmd_info`, `cmd_analyze`, `_add_common_analysis_args` + `tests/test_cli_integration.py` |
+| 19 | PID benchmark tolerance 0.10 → 0.03 nats, re-validated (xor/copy/rdn/unq ≈1e-4, and ≈3e-3) | `benchmarks/cases/pid.py:67`, `docs/benchmarks.md` |
+| 20 | CLI integration smoke tests end-to-end on synthetic NWB (info `--json`, analyze stdout/stderr split, analyze→figure round-trip) | `tests/test_cli_integration.py` (new, 3 tests) |
+| 21 | `fit_alpha` now Clauset–Shalizi–Newman discrete MLE `1 + n/Σln(x/(xmin−0.5))`; old log-binned estimator preserved as `fit_alpha_loglog` | `analysis/criticality.py` `fit_alpha`/`fit_alpha_loglog`; benchmark tau cross-check uses `fit_alpha_loglog` (mean-field 2.0 target) |
+| 22 | `CriticalityResult.kappa` docstring marked `.. deprecated:: 1.1.0` (not Shew 2009 κ; removed next minor) | `analysis/criticality.py` kappa docstring + module docstring |
+| 23 | BH-FDR family documented + `test(family="global"/"per_row"/"per_column")` for matrix statistics; recorded in `inf.metadata["fdr_family"]` | `inference/null_test.py` `fdr_bh_family`/`test`, `docs/inference.md` § "FDR family" |
+| 24 | `lmc_complexity(n_states=None)` fixed state-space for cross-population comparability; trade-off documented | `analysis/complexity.py` `lmc_complexity`/`_hdc_from_count_series`/`_trajectory`, `params["n_states"]` |
+| 25 | `io.__init__` reconciled: `add_quality`/`add_anatomy`/`add_trials`/`from_dict` eager (pure numpy/pandas); heavy NWB/phy/kilosort/spikeinterface loaders stay lazy via `__getattr__` | `neurocomplexity/io/__init__.py` |
+
 ## Verification
 
 ```
 pytest tests/ --ignore=tests/test_inference_calibration.py -q
+→ 423 passed, 1 skipped (post Tier-5; criticality benchmark tau cross-check
+   switched to fit_alpha_loglog to keep the mean-field 2.0 target valid)
+pytest tests/ --ignore=tests/test_inference_calibration.py -q  # (Tier 1–4 baseline)
 → 420 passed, 1 skipped, 580 warnings in 278.78s
 pytest tests/test_reproducibility.py tests/test_invariants.py \
         tests/test_cli_analyze_smoke.py tests/test_inference_bootstrap.py \
@@ -62,13 +81,23 @@ python scripts/generate_calibration_report.py
 
 ## Phase-4' re-review readiness
 
-- Every Tier 1–4 item (#1–#14) closed with the noted acceptance test
-  passing locally.
-- Tier 5 P1 items remain pending and tracked; the punch-list says
-  re-review may proceed once **≥ 70 % of Tier 5 closes** — that is the
-  next concrete work block.
+Gate criteria from `phase4_review_panel.md` § "Re-review acceptance criteria":
+
+| # | Criterion | Status |
+|---|---|---|
+| 1 | Every Tier 1–4 item (#1–#14) closed with acceptance test passing | **MET** — all 14 closed; full suite green |
+| 2 | ≥ 70 % of Tier 5 (#15–#25) closed | **EXCEEDED** — 11/11 = 100%; nothing deferred |
+| 3 | Tier 6 P2 items filed as GitHub issues | **OUTSTANDING** — 5 P2 items not yet filed |
+| 4 | Re-reviewer agent runs `re-review`, produces R&R Traceability Matrix | **PENDING** — this IS Phase 4', the next action |
+| 5 | `test_invariants.py` + `test_reproducibility.py` pass, no extra skips | **MET** — 51 passed, 0 skips |
+
 - No reviewer's P0 was deferred or contested; the resolution actions
   match the punch-list verbatim.
+- Lint gates: `ruff check neurocomplexity/` clean; `mypy` clean on slim
+  surface (5 files). New cli.py `--json` code adds untyped-def errors only
+  on the full tree, outside the gated surface (1.2 follow-up, as designed).
+- **Blocking for Phase 4' entry:** criterion 3 (file the 5 Tier 6 P2 items
+  as issues). Criterion 4 is Phase 4' itself, not a prerequisite.
 
 This document is the input for the re-review (Phase 4'). Each row points
 at the file:line where the change landed and the test that locks it.
