@@ -11,7 +11,11 @@ NetPyNE simulations and has been rewritten to run, instead, on real
 experimental data — Allen Institute Neuropixels, KiloSort/SpikeInterface
 output, anything that can be loaded into an NWB file.
 
-[![Codecov Sunburst](https://codecov.io/gh/aurmandi/neurocomplexity/graphs/sunburst.svg?token=QRG1Q0YO82)](https://codecov.io/gh/aurmandi/neurocomplexity)
+<p align="center">
+  <a href="https://codecov.io/gh/aurmandi/neurocomplexity">
+    <img src="https://codecov.io/gh/aurmandi/neurocomplexity/graphs/sunburst.svg?token=QRG1Q0YO82" alt="Codecov Sunburst" width="400"/>
+  </a>
+</p>
 
 ## What's actually in it
 
