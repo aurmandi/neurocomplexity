@@ -43,6 +43,5 @@ docs/paper/
 docs/specs/
 docs/plans/
 
-# Sphinx
 docs/_build/
 docs/.jupyter_cache/
