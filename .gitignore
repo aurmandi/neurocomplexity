@@ -44,4 +44,6 @@ docs/specs/
 docs/plans/
 
 docs/_build/
-docs/.jupyter_cache/
+docs/.jupyter_cache
+
+scripts/
