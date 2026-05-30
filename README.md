@@ -11,9 +11,7 @@ NetPyNE simulations and has been rewritten to run, instead, on real
 experimental data — Allen Institute Neuropixels, KiloSort/SpikeInterface
 output, anything that can be loaded into an NWB file.
 
-The point of the package is to let you go from a `.nwb` file to a manuscript
-figure in one command, without having to assemble five different ad-hoc
-notebooks every time.
+[![Codecov Sunburst](https://codecov.io/gh/aurmandi/neurocomplexity/graphs/sunburst.svg?token=QRG1Q0YO82)](https://codecov.io/gh/aurmandi/neurocomplexity)
 
 ## What's actually in it
 
