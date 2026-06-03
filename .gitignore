@@ -10,6 +10,7 @@ dist/
 .cursor/
 .aider*
 .claude/
+.codex/
 
 
 .venv/
@@ -36,14 +37,18 @@ sim_output/
 outputs/
 *.log
 
+# Local analysis scripts and figure outputs
+examples/figures/
+examples/_*.py
+scripts/
 
+# Manuscript draft kept local-only until submission
 paper/
 docs/paper/
 
 docs/specs/
 docs/plans/
+docs/superpowers/
 
 docs/_build/
 docs/.jupyter_cache
-
-scripts/
