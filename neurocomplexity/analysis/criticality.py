@@ -10,9 +10,6 @@ Definitions (Sethna 2001 crackling-noise framework; Friedman 2012; Fontenele
 - <S>(T) ~ T^gamma_fit — empirical scaling exponent (regression)
 - gamma_predicted = (alpha_t - 1) / (alpha_s - 1)
 - At criticality: gamma_fit ≈ gamma_predicted
-- kappa = 1 + gamma_predicted (DEPRECATED legacy field; NOT Shew 2009 κ;
-  removed next minor)
-
 History: an earlier version of this module estimated alpha_t as 1/slope of
 the log_T-vs-log_S regression. That quantity is gamma_fit, NOT alpha_t.
 Fixed: alpha_t now comes from a direct log-spaced histogram fit of the
@@ -38,71 +35,53 @@ class CriticalityResult:
     Attributes
     ----------
     alpha_s
-        Exponent of the avalanche-size distribution ``P(S) ~ S^(-alpha_s)``,
-        fit by maximum-likelihood on a log-spaced histogram. At criticality
-        for a directed-percolation-class model, ``alpha_s ≈ 1.5``.
+        Size-distribution exponent ``P(S) ~ S^(-alpha_s)``. At criticality ≈ 1.5.
     alpha_t
-        Exponent of the lifetime distribution ``P(T) ~ T^(-alpha_t)``, fit
-        directly from a log-spaced histogram of avalanche lifetimes. At
-        criticality, ``alpha_t ≈ 2.0``. **Not** ``1 / slope`` of the size-vs-lifetime
-        regression (see ``gamma_fit`` below for that quantity).
-    optimal_bin_seconds
-        Bin size that maximised the goodness-of-fit of the size-vs-lifetime
-        scaling across the swept range. Avalanches are sensitive to bin
-        size; this picks the bin that gives the cleanest power law.
+        Lifetime-distribution exponent ``P(T) ~ T^(-alpha_t)``, fit directly
+        from a log-spaced histogram. At criticality ≈ 2.0. Distinct from
+        ``gamma_fit`` (see below).
+    optimal_bin
+        Bin size (milliseconds) selected by maximising R² of the size-vs-lifetime scaling.
     branching
-        Branching parameter from the size distribution
-        ``branching ≈ <S^2> / <S>^2 - 1``. **Not** the same as
-        :func:`~neurocomplexity.analysis.wilting_mr`. Kept for backwards
-        compatibility.
-    kappa
-        Deprecated. ``kappa`` here is simply ``1 + gamma_predicted`` and is
-        **not** the Shew et al. (2009) κ statistic (the deviation of the
-        measured avalanche-size CDF from the theoretical reference at
-        criticality). The name collision is misleading; the field is kept
-        only for API stability and will be **removed in the next minor
-        release**. Use ``gamma_predicted`` directly, or compute Shew κ
-        explicitly if that is what you want.
+        ``≈ <S²> / <S>² − 1``. Not the same as :func:`~neurocomplexity.analysis.wilting_mr`.
     sizes
-        Per-avalanche size counts (at ``optimal_bin_seconds``).
+        Per-avalanche spike counts (at ``optimal_bin``).
     lifetimes
-        Per-avalanche lifetimes in seconds (at ``optimal_bin_seconds``).
+        Per-avalanche durations in seconds (at ``optimal_bin``).
     r_squared
-        Goodness-of-fit of the ``<S>(T) ~ T^gamma_fit`` log-linear
-        regression.
+        R² of the ``<S>(T) ~ T^gamma_fit`` log-linear regression.
     populations
-        Populations whose union was binned into the activity series.
+        Populations whose union was binned.
     source
         Provenance back-pointer.
     params
-        Verbatim copy of the keyword arguments passed to :func:`criticality`.
+        Keyword arguments passed to :func:`criticality`.
     gamma_fit
-        Empirical scaling exponent from the regression
-        ``log <S>(T) = const + gamma_fit * log T``. Historically misreported
-        as ``alpha_t``; we now expose it explicitly.
+        Empirical scaling exponent from ``log <S>(T) = const + gamma_fit · log T``.
+        Earlier versions of this module reported this as ``alpha_t`` — that was
+        a bug. At criticality, ``gamma_fit ≈ gamma_predicted``.
     gamma_predicted
-        Theoretical scaling exponent ``(alpha_t - 1) / (alpha_s - 1)``
-        predicted by the Sethna (2001) crackling-noise framework. At
-        criticality, ``gamma_fit ≈ gamma_predicted`` — the Sethna
-        consistency test.
+        Theoretical exponent ``(alpha_t − 1) / (alpha_s − 1)`` (Sethna 2001).
+        Sethna consistency check: ``gamma_fit ≈ gamma_predicted``.
+    fits
+        Per-bin fit table when :func:`criticality` was called with a sequence
+        of ``bin_size`` values. Each entry has ``bin_seconds``, ``alpha_s``,
+        ``alpha_t``, ``gamma_fit``, ``r_squared``, ``n_avalanches``. Empty for
+        single-bin calls.
     """
 
     alpha_s: float
     alpha_t: float
-    optimal_bin_seconds: float
+    optimal_bin: float
     branching: float
-    kappa: float
     sizes: np.ndarray
     lifetimes: np.ndarray
     r_squared: float
     populations: tuple[str, ...]
-    source: object  # ProvenanceRecord back-pointer
+    source: object
     params: dict = field(default_factory=dict)
-    # New fields (post bug-fix). Defaulted so old pickled results still load.
-    gamma_fit: float = float("nan")           # 1/slope of log_T vs log_S
-    gamma_predicted: float = float("nan")     # (alpha_t - 1) / (alpha_s - 1)
-    # Phase-4 Tier 4 (forking-path lockdown). Every bin's fit, not just the
-    # R²-selected one. Empty if a single ``bin_size_ms`` was passed.
+    gamma_fit: float = float("nan")
+    gamma_predicted: float = float("nan")
     fits: tuple = ()
 
 
@@ -254,17 +233,17 @@ def _branching(counts_1d: np.ndarray) -> float:
 
 def criticality(rec: SpikeRecording,
                 populations: Sequence[str] | None = None,
-                bin_size_ms: float | Sequence[float] = 4.0,
+                bin_size: float | Sequence[float] = 4.0,
                 ) -> CriticalityResult:
     """Fit avalanche-size, lifetime, and scaling exponents at a chosen bin.
 
-    .. versionchanged:: 1.1.0
-        ``bin_size_ms`` now defaults to a *scalar* (4 ms). Passing a
-        sequence still works for backwards compatibility but emits a
-        :class:`UserWarning` flagging the R²-driven selection as a
-        methodological forking-path — see
-        ``docs/decisions/2026-05-29-criticality-bin-selection.md`` for
-        the rationale.
+    By default the analysis runs at a single bin size of 4 ms. If you
+    are not sure which bin to use, you can pass a sequence of candidate
+    bin sizes. ``criticality`` will then fit each one and report the
+    bin that maximises the R² of the size-vs-lifetime regression as the
+    "optimal" choice. When you do this, the full per-bin table is
+    available on the returned result as ``result.fits`` so you can
+    inspect every fit and find optimal value.
 
     Parameters
     ----------
@@ -272,18 +251,22 @@ def criticality(rec: SpikeRecording,
         Spike recording.
     populations
         Names of populations whose union is binned. ``None`` → all.
-    bin_size_ms
-        Bin size in milliseconds. Pass a single ``float`` for the
-        principled single-bin estimate (recommended). Passing a
-        ``Sequence[float]`` triggers the legacy R²-driven sweep; the
-        full per-bin table is exposed in :attr:`CriticalityResult.fits`
-        so reviewers can inspect every fit. Use
-        :func:`bin_size_sweep` if you only want the table without
-        choosing a winner.
+    bin_size
+        Bin size in milliseconds. Default is ``4.0``. Pass a single
+        ``float`` for a one-shot fit at that bin (recommended when you
+        already know an appropriate timescale, e.g. the inter-event
+        interval). Pass a ``Sequence[float]`` (e.g. ``[2, 4, 8]``) to
+        scan multiple candidates; the per-bin fit table is then
+        available on the returned object as ``result.fits``. As a
+        standalone alternative that returns only the table without
+        picking a winner, use :func:`bin_size_sweep`.
 
     Returns
     -------
     :class:`CriticalityResult`
+        Carries ``alpha_s``, ``alpha_t``, ``gamma_fit``,
+        ``optimal_bin``, the avalanche size / lifetime arrays,
+        and ``fits`` (the per-bin table when a sequence was passed).
     """
     from neurocomplexity._warnings import _warn_if_nonstationary, _warn_if_uncurated
     _warn_if_uncurated(rec, "criticality")
@@ -293,39 +276,38 @@ def criticality(rec: SpikeRecording,
     if not populations:
         raise ValueError("no populations to analyse")
 
-    # Normalise bin_size_ms to a sequence; remember whether the user passed
-    # a scalar so we can suppress the forking-path warning and the .fits
-    # table in that case.
-    if np.isscalar(bin_size_ms):
-        bin_size_ms_seq: list[float] = [float(bin_size_ms)]
+    # Normalise bin_size to a sequence; remember whether the user
+    # passed a scalar so we can suppress the multi-bin notice and the
+    # .fits table in that case.
+    if np.isscalar(bin_size):
+        bin_size_seq: list[float] = [float(bin_size)]
         single_bin = True
     else:
-        bin_size_ms_seq = [float(x) for x in bin_size_ms]
-        single_bin = len(bin_size_ms_seq) == 1
+        bin_size_seq = [float(x) for x in bin_size]
+        single_bin = len(bin_size_seq) == 1
 
     if not single_bin:
         import warnings as _w
         _w.warn(
-            "criticality() called with a sequence of candidate bin sizes; "
-            "the bin that maximises R² of the size-vs-lifetime regression "
-            "will be selected and reported as `optimal_bin_seconds`. This "
-            "is a methodological forking path — every fit is now exposed "
-            "in `CriticalityResult.fits` so a reviewer can audit the "
-            "choice. Prefer passing a single `bin_size_ms` value and "
-            "justifying it from the autocorrelation time, or call "
-            "`nc.analysis.bin_size_sweep(rec, ...)` directly. See "
-            "`docs/decisions/2026-05-29-criticality-bin-selection.md`.",
+            "criticality() was called with a sequence of candidate bin "
+            "sizes. The bin that maximises R² of the size-vs-lifetime "
+            "regression will be reported as `optimal_bin`. The "
+            "fit table for every candidate bin is available on the "
+            "returned object as `result.fits` so you can inspect each "
+            "one rather than only trusting the chosen optimum. If you "
+            "want only the table without selecting a winner, call "
+            "`nc.analysis.bin_size_sweep(rec, ...)` directly.",
             UserWarning,
             stacklevel=2,
         )
 
     _params = {"populations": list(populations),
-               "bin_size_ms": list(bin_size_ms_seq),
+               "bin_size": list(bin_size_seq),
                "bin_selection": "single" if single_bin else "r2_sweep"}
 
     fits: list[dict] = []
     best = {"r2": -np.inf}
-    for bs_ms in bin_size_ms_seq:
+    for bs_ms in bin_size_seq:
         bs = float(bs_ms) / 1000.0
         counts = bin_all_active(rec, populations, bs)
         sizes, lifetimes = extract_avalanches(counts, bs)
@@ -358,8 +340,7 @@ def criticality(rec: SpikeRecording,
     if "alpha_s" not in best:
         return CriticalityResult(
             alpha_s=float("nan"), alpha_t=float("nan"),
-            optimal_bin_seconds=float("nan"), branching=float("nan"),
-            kappa=float("nan"),
+            optimal_bin=float("nan"), branching=float("nan"),
             sizes=np.array([]), lifetimes=np.array([]),
             r_squared=float("nan"),
             populations=tuple(populations),
@@ -374,15 +355,12 @@ def criticality(rec: SpikeRecording,
     alpha_t = best["alpha_t"]
     if (not np.isnan(alpha_s) and not np.isnan(alpha_t) and alpha_s != 1.0):
         gamma_predicted = (alpha_t - 1.0) / (alpha_s - 1.0)
-        kappa = 1.0 + gamma_predicted
     else:
         gamma_predicted = float("nan")
-        kappa = float("nan")
     return CriticalityResult(
         alpha_s=alpha_s, alpha_t=alpha_t,
-        optimal_bin_seconds=best["bs"],
-        branching=_branching(best["counts"]),
-        kappa=kappa,
+        optimal_bin=best["bs"] * 1000.0,
+            branching=_branching(best["counts"]),
         sizes=best["sizes"],
         lifetimes=best["lifetimes"],
         r_squared=best["r2"],
@@ -398,43 +376,24 @@ def criticality(rec: SpikeRecording,
 def bin_size_sweep(rec: SpikeRecording,
                    populations: Sequence[str] | None = None,
                    bin_size_ms: Sequence[float] = (2, 4, 8, 16, 32),
-                   ) -> tuple[dict, ...]:
-    """Return the avalanche-fit table over a candidate bin-size grid.
+                   ) -> "CriticalityResult":
+    """Sweep bin sizes and return the best-fit :class:`CriticalityResult`.
 
-    Standalone alternative to :func:`criticality` that exposes the full
-    sweep *without* picking a winner. Use this when you want to inspect
-    bin-size sensitivity in your manuscript figure or supplement.
+    Equivalent to ``criticality(rec, populations=populations,
+    bin_size=bin_size_ms)``. The winner is the bin that maximises R² of
+    the size-vs-lifetime scaling. The full per-bin table is available on
+    the returned object as ``result.fits``.
 
-    Each row is a dict with keys ``bin_seconds``, ``alpha_s``,
-    ``alpha_t``, ``gamma_fit``, ``r_squared``, ``n_avalanches``.
-
-    Bins that produce fewer than 10 avalanches (or otherwise degenerate
-    fits) are skipped.
-
-    Notes
-    -----
-    Added in 1.1.0 to address the Phase-4 Tier 4 forking-path concern.
+    Parameters
+    ----------
+    rec
+        Spike recording.
+    populations
+        Population keys to include. ``None`` uses all populations.
+    bin_size_ms
+        Candidate bin sizes in milliseconds.
     """
-    from neurocomplexity._warnings import _warn_if_uncurated
-    _warn_if_uncurated(rec, "bin_size_sweep")
-    if populations is None:
-        populations = list(rec.populations.keys())
-    if not populations:
-        raise ValueError("no populations to analyse")
-    rows: list[dict] = []
-    for bs_ms in bin_size_ms:
-        bs = float(bs_ms) / 1000.0
-        counts = bin_all_active(rec, populations, bs)
-        sizes, lifetimes = extract_avalanches(counts, bs)
-        if len(sizes) < 10 or np.var(sizes) == 0:
-            continue
-        alpha_s, alpha_t, gamma_fit, r2 = fit_avalanche_exponents(
-            sizes, lifetimes, bs)
-        if not np.isfinite(r2):
-            continue
-        rows.append({
-            "bin_seconds": bs, "alpha_s": float(alpha_s),
-            "alpha_t": float(alpha_t), "gamma_fit": float(gamma_fit),
-            "r_squared": float(r2), "n_avalanches": int(len(sizes)),
-        })
-    return tuple(rows)
+    import warnings as _w
+    with _w.catch_warnings():
+        _w.simplefilter("ignore", UserWarning)
+        return criticality(rec, populations=populations, bin_size=bin_size_ms)

@@ -86,7 +86,7 @@ def bench_avalanche_exponents(n_reps: int = 50, seed: int = 0) -> BenchmarkResul
         rec = trial_based_avalanches(
             n_units=40, n_trials=3000, m=1.0, bin_ms=4.0, seed=int(s),
         )
-        result = criticality(rec, populations=["all"], bin_size_ms=(4.0,))
+        result = criticality(rec, populations=["all"], bin_size=(4.0,))
         if not np.isnan(result.alpha_s):
             alpha_ss.append(result.alpha_s)
         # Duration-tail exponent via log-binned histogram (Friedman 2012
@@ -94,7 +94,7 @@ def bench_avalanche_exponents(n_reps: int = 50, seed: int = 0) -> BenchmarkResul
         # the mean-field 2.0 target is the log-binned-histogram estimate.
         # result.alpha_t uses the CSN discrete MLE, which is a distinct
         # estimator and biases lower at xmin=1 on this simulator.
-        lifetimes_in_bins = result.lifetimes / result.optimal_bin_seconds
+        lifetimes_in_bins = result.lifetimes / (result.optimal_bin / 1000.0)
         tau = fit_alpha_loglog(lifetimes_in_bins, xmin=1)
         if not np.isnan(tau):
             tau_ts.append(tau)

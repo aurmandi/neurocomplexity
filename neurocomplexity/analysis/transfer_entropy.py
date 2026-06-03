@@ -3,6 +3,26 @@
 Estimator: Schreiber (2000) on binary-thresholded spike counts, with
 Miller-Madow bias correction. Robust on integer counts where Kraskov k-NN
 degenerates (zero distances).
+
+Recommended granularity
+-----------------------
+For binned spike-train data the field convention is **per-unit** (or per-
+channel) TE — every node in the TE graph is a single unit. This is the
+recipe in Shimono & Beggs (2015 J. Neurosci.) and Timme et al. (2016
+PLoS Comp. Biol.), both of which use exactly the Schreiber binary
+estimator implemented here.
+
+Pooling many units into one "population" stream (``populations=["VISp"]``
+where VISp has hundreds of units) creates a binary marginal that
+saturates near 1 in every bin, collapses the entropy, and underpowers
+the TE test. Use per-unit populations whenever the population would
+otherwise contain more than a few tens of units. ``transfer_entropy``
+emits a ``UserWarning`` at runtime when any input stream's binary
+marginal saturates beyond ``[0.05, 0.95]``.
+
+KSG / continuous-valued TE (Kraskov–Stögbauer–Grassberger; the TRENTOOL3
+and IDTxl default for LFP/EEG/MEG) is a different estimator family and
+is not implemented in v0.1 — open an issue if you need it.
 """
 from __future__ import annotations
 
@@ -150,6 +170,17 @@ def transfer_entropy(rec: SpikeRecording,
         cores) dispatches the ``P*(P-1)`` ordered pairs via
         :func:`joblib.Parallel`.
 
+    Notes
+    -----
+    **Granularity.** For binned spike-train data the field-standard
+    granularity is per-unit (Shimono & Beggs 2015; Timme et al. 2016).
+    Pooling many units into one population stream saturates the binary
+    marginal and underpowers the test. To run per-unit TE within an area,
+    pass ``populations`` as a dict of singleton masks (one mask per unit) to
+    :meth:`~neurocomplexity.core.SpikeRecording.with_populations`. A
+    ``UserWarning`` is emitted when any stream's binary marginal falls
+    outside ``[0.05, 0.95]``.
+
     Complexity
     ----------
     The pairwise loop is ``O(P^2 * T)`` — ``P*(P-1)`` ordered population
@@ -192,6 +223,30 @@ def transfer_entropy(rec: SpikeRecording,
         counts = np.concatenate([counts, sig_block], axis=1)
     names = populations + signals
     P = counts.shape[1]
+
+    # Saturation diagnostic: binary-symbol TE collapses when any input
+    # stream's binarized marginal is near 0 or 1. This is the classic failure
+    # mode of pooling hundreds of units into one population. Warn so the user
+    # can switch to per-unit granularity (see module docstring).
+    if P:
+        bin_marg = (counts > 0).mean(axis=0)
+        bad = [
+            (names[i], float(bin_marg[i]))
+            for i in range(P)
+            if bin_marg[i] < 0.05 or bin_marg[i] > 0.95
+        ]
+        if bad:
+            import warnings
+            warnings.warn(
+                "transfer_entropy: binary marginal saturates for "
+                + ", ".join(f"{n!r}={v:.3f}" for n, v in bad)
+                + " (outside [0.05, 0.95]); binary-symbol TE will be near "
+                "zero and the surrogate test will be underpowered. Use "
+                "per-unit populations (one mask per unit) or a finer bin "
+                "size — see transfer_entropy module docstring.",
+                stacklevel=2,
+            )
+
     mat = np.zeros((P, P), dtype=np.float64)
     pairs = [(s, t) for s in range(P) for t in range(P) if s != t]
 

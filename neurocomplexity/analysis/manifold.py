@@ -210,6 +210,8 @@ def manifold(rec: SpikeRecording,
              dims: int = 2,
              bin_size_s: float = 0.05,
              sigma_ms: float = 50.0,
+             normalize: str = "soft",
+             soft_norm_constant: float = 5.0,
              umap_n_neighbors: int = 15,
              umap_min_dist: float = 0.1,
              tsne_perplexity: float = 30.0,
@@ -219,8 +221,7 @@ def manifold(rec: SpikeRecording,
 
     Bins each unit in ``populations`` into ``bin_size_s``-wide counts,
     smooths each unit's count series with a Gaussian of std ``sigma_ms``,
-    z-scores per unit (dropping zero-variance units), then projects with
-    PCA / UMAP / t-SNE.
+    normalizes per unit, then projects with PCA / UMAP / t-SNE.
 
     Parameters
     ----------
@@ -245,6 +246,24 @@ def manifold(rec: SpikeRecording,
         Standard deviation of the Gaussian temporal smoothing applied to
         each unit's count series before DR. Set to 0 to disable smoothing
         (default 50 ms, following Churchland et al. 2007).
+    normalize
+        Per-unit normalization applied after smoothing, before DR.
+
+        * ``"soft"`` (default) — divide each unit by ``(range + c)`` with
+          ``c = soft_norm_constant`` (Churchland et al. 2012; Russo et al.
+          2018). Field standard for population geometry: brings units onto
+          comparable scales without inflating noise from near-silent units
+          the way hard z-scoring does. Recommended for spike data.
+        * ``"zscore"`` — subtract mean, divide by SD per unit. Forces unit
+          variance everywhere; upweights low-rate units.
+        * ``"sqrt"`` — variance-stabilizing square-root of counts (Anscombe
+          transform for Poisson data); centred after.
+        * ``"none"`` — only mean-centre per unit; no scaling.
+    soft_norm_constant
+        Additive constant ``c`` in the soft normalization
+        ``X / (range + c)``. Default 5 (Russo 2018 convention for spike
+        counts at ~50 ms bins). Larger ``c`` damps low-rate units more.
+        Only used when ``normalize="soft"``.
     umap_n_neighbors, umap_min_dist
         UMAP hyperparameters; ignored for other methods.
     tsne_perplexity
@@ -320,11 +339,29 @@ def manifold(rec: SpikeRecording,
 
     sigma_samples = (sigma_ms / 1000.0) / bin_size_s
     X = _smooth_gaussian(counts.astype(np.float64), sigma_samples=sigma_samples)
-    # Per-column z-score (skip zero-std).
+    if normalize == "sqrt":
+        # Anscombe-like variance-stabilizing transform for Poisson counts.
+        X = np.sqrt(np.clip(X, 0.0, None))
+    # Per-column scaling. All branches centre first (PCA needs zero mean).
     mu = X.mean(axis=0, keepdims=True)
-    sd = X.std(axis=0, keepdims=True)
-    sd_safe = np.where(sd > 0, sd, 1.0)
-    X = (X - mu) / sd_safe
+    Xc = X - mu
+    if normalize == "soft":
+        # Churchland 2012 / Russo 2018 soft normalization: divide by
+        # (range + c). Brings units to comparable amplitude without
+        # inflating noise from near-silent units the way hard z-score does.
+        rng = X.max(axis=0, keepdims=True) - X.min(axis=0, keepdims=True)
+        X = Xc / (rng + float(soft_norm_constant))
+    elif normalize == "zscore":
+        sd = X.std(axis=0, keepdims=True)
+        sd_safe = np.where(sd > 0, sd, 1.0)
+        X = Xc / sd_safe
+    elif normalize in ("sqrt", "none"):
+        # `sqrt` already applied above; both leave centred matrix as-is.
+        X = Xc
+    else:
+        raise ValueError(
+            f"normalize must be one of soft/zscore/sqrt/none; got {normalize!r}"
+        )
 
     explained: np.ndarray | None
     if method == "pca":
@@ -342,6 +379,8 @@ def manifold(rec: SpikeRecording,
         "dims": int(dims),
         "bin_size_s": float(bin_size_s),
         "sigma_ms": float(sigma_ms),
+        "normalize": str(normalize),
+        "soft_norm_constant": float(soft_norm_constant),
         "umap_n_neighbors": int(umap_n_neighbors),
         "umap_min_dist": float(umap_min_dist),
         "tsne_perplexity": float(tsne_perplexity),

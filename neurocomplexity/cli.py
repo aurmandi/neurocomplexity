@@ -151,14 +151,14 @@ def _run_analyses(rec, args):
 
     out = {}
 
-    log("[criticality] alpha_s, alpha_t, kappa ...")
+    log("[criticality] alpha_s, alpha_t, gamma_predicted ...")
     t = time.time()
     try:
         _crit_bin = (args.crit_bin_sweep
                       if args.crit_bin_sweep is not None
                       else args.crit_bin_ms)
         out["criticality"] = nc.analysis.criticality(
-            rec, populations=pops, bin_size_ms=_crit_bin)
+            rec, populations=pops, bin_size=_crit_bin)
         log(f"  alpha_s={out['criticality'].alpha_s:.3f}  "
             f"alpha_t={out['criticality'].alpha_t:.3f}  "
             f"R2={out['criticality'].r_squared:.3f}  "
