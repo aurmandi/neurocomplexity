@@ -732,23 +732,20 @@ code(
     "    n_units=40, n_trials=3000, m=1.0, bin_ms=4.0, seed=0,",
     ")",
     "",
-    "crit = criticality(rec_av, populations=['all'], bin_size_ms=(4.0,))",
+    "crit = criticality(rec_av, populations=['all'], bin_size=(4.0,))",
     "print(f'alpha (size)     = {crit.alpha_s:.2f}   (expected ~1.5)')",
     "print(f'alpha_t (gamma)  = {crit.alpha_t:.2f}   (gamma scaling exponent)')",
-    "print(f'kappa (collapse) = {crit.kappa:.2f}   (~1 at criticality)')",
-    "print(f'optimal bin (s)  = {crit.optimal_bin_seconds:.3f}')",
+    "print(f'gamma_predicted  = {crit.gamma_predicted:.2f}   (~1 at criticality)')",
+    "print(f'optimal bin (ms) = {crit.optimal_bin:.1f}')",
 )
 
 md(
-    "$\\hat{\\alpha}$ should land within roughly 0.10 of 1.5 at this trial "
-    "count. The `alpha_t` field is the $\\gamma$-scaling exponent fit "
-    "from $\\langle s \\rangle$ versus $T$, not $\\tau$ directly; the "
-    "package fits the duration exponent $\\tau$ via "
-    "`fit_alpha(lifetimes_in_bins, xmin=1)` if you want the noisier "
-    "tail-based estimate. $\\kappa$ is the Shew et al. (2009) collapse "
-    "score — 1.0 at perfect criticality, lower as the system drifts "
-    "away — and is the most diagnostic single number if you are trying "
-    "to *classify* a recording as critical or not.",
+    "$\\hat{\\alpha}_s$ should land within roughly 0.10 of 1.5 at this trial "
+    "count. `alpha_t` is the lifetime-distribution exponent fit directly "
+    "from a log-spaced histogram. `gamma_predicted` is the Sethna (2001) "
+    "theoretical prediction $(\\alpha_t - 1)/(\\alpha_s - 1)$; "
+    "agreement with `gamma_fit` (the empirical regression exponent) is "
+    "the crackling-noise consistency check for criticality.",
 )
 
 
@@ -779,7 +776,7 @@ code(
     "# Crackling-noise prediction uses the duration exponent tau; we fit",
     "# it from the lifetime distribution directly:",
     "from neurocomplexity.analysis.criticality import fit_alpha",
-    "lifetimes_in_bins = crit.lifetimes / crit.optimal_bin_seconds",
+    "lifetimes_in_bins = crit.lifetimes / (crit.optimal_bin / 1000.0)",
     "tau = fit_alpha(lifetimes_in_bins, xmin=1)",
     "predicted_gamma = (tau - 1) / (crit.alpha_s - 1)",
     "print(f'fit gamma        = {sc.gamma:.2f}')",

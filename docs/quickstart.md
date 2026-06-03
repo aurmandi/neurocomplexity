@@ -61,8 +61,19 @@ c = nc.analysis.criticality(rec, populations=["VISp"])
 print(f"alpha_s={c.alpha_s:.2f}, alpha_t={c.alpha_t:.2f}, "
       f"gamma_pred={c.gamma_predicted:.2f}, gamma_fit={c.gamma_fit:.2f}")
 
-# Effective connectivity
+# Effective connectivity. NOTE: the field-standard granularity for spike-
+# train TE is *per unit*, not per pooled brain area, because pooling
+# hundreds of units saturates the binary marginal and underpowers the
+# test (Shimono & Beggs 2015 J. Neurosci.; Timme et al. 2016 PLoS CB).
+# Pop-level TE is shown here only as the smallest illustrative example;
+# for a real analysis, build one population per unit and run TE there.
 te = nc.analysis.transfer_entropy(rec, populations=["VISp", "LGd", "CA1"], bin_size_ms=10)
+
+# Per-unit TE within an area (the recommended recipe):
+#   ca1 = rec.filter_units(query="brain_area == 'CA1'")
+#   defn = {f"u{i}": (ca1.units['id'].to_numpy() == i) for i in ca1.units['id']}
+#   ca1 = ca1.with_populations(definition=defn)
+#   te_unit = nc.analysis.transfer_entropy(ca1, bin_size_ms=5, delay_bins=4)
 
 # Geometry
 pr = nc.analysis.dimensionality(rec, populations=["VISp"], bin_size_ms=10)

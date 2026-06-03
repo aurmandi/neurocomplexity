@@ -358,10 +358,9 @@ cells.append(md(
     "The result is a `CriticalityResult` dataclass exposing:",
     "",
     "- `alpha_s`, `alpha_t` — the two power-law exponents.",
-    "- `optimal_bin_seconds` — the bin size that won.",
+    "- `optimal_bin` — winning bin size in milliseconds.",
     "- `branching` — naive branching ratio (descendants per ancestor).",
-    "- `kappa` — Shew et al. (2009) deviation-from-power-law statistic; "
-    "  `≈ 1` at criticality.",
+    "- `gamma_fit`, `gamma_predicted` — empirical and theoretical scaling exponents.",
     "- `sizes`, `lifetimes` — the raw avalanche arrays for plotting.",
     "- `r_squared` — R² of the power-law fit.",
 ))
@@ -370,9 +369,9 @@ cells.append(code(
     "crit = nc.analysis.criticality(rec_spont, populations=['VISp'])",
     "print(f'alpha_s = {crit.alpha_s:.3f}')",
     "print(f'alpha_t = {crit.alpha_t:.3f}')",
-    "print(f'kappa   = {crit.kappa:.3f}')",
+    "print(f'gamma_predicted = {crit.gamma_predicted:.3f}')",
     "print(f'R^2     = {crit.r_squared:.3f}')",
-    "print(f'optimal bin = {crit.optimal_bin_seconds*1e3:.1f} ms')",
+    "print(f'optimal bin = {crit.optimal_bin:.1f} ms')",
     "print(f'n avalanches = {len(crit.sizes)}')",
 ))
 
