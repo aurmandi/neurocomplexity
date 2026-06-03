@@ -30,7 +30,7 @@ def _crit():
     import warnings
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        return criticality(rec, populations=["all"], bin_size_ms=(4.0,))
+        return criticality(rec, populations=["all"], bin_size=(4.0,))
 
 
 def test_result_carries_new_gamma_fields():
@@ -42,7 +42,7 @@ def test_result_carries_new_gamma_fields():
 def test_alpha_t_is_direct_lifetime_fit_not_regression_slope():
     """alpha_t must equal fit_alpha(lifetimes/bin), NOT 1/slope of log_T vs log_S."""
     r = _crit()
-    expected = fit_alpha(r.lifetimes / r.optimal_bin_seconds)
+    expected = fit_alpha(r.lifetimes / (r.optimal_bin / 1000.0))
     assert np.isfinite(r.alpha_t)
     assert np.isfinite(expected)
     assert abs(r.alpha_t - expected) < 1e-9
@@ -54,9 +54,12 @@ def test_gamma_predicted_matches_formula():
     assert abs(r.gamma_predicted - expected) < 1e-9
 
 
-def test_kappa_equals_one_plus_gamma_predicted():
+def test_gamma_predicted_in_sane_range():
+    """Legacy 'kappa' field was removed (duplicated 1+gamma_predicted).
+    Guard the surviving canonical gamma_predicted."""
     r = _crit()
-    assert abs(r.kappa - (1.0 + r.gamma_predicted)) < 1e-9
+    assert np.isfinite(r.gamma_predicted)
+    assert 0.5 < r.gamma_predicted < 3.0
 
 
 def test_gamma_fit_and_gamma_predicted_consistent_at_criticality():
@@ -97,8 +100,7 @@ def test_fit_avalanche_exponents_returns_four_values():
 def test_degenerate_input_returns_nans_with_new_fields():
     r = CriticalityResult(
         alpha_s=float("nan"), alpha_t=float("nan"),
-        optimal_bin_seconds=float("nan"), branching=float("nan"),
-        kappa=float("nan"),
+        optimal_bin=float("nan"), branching=float("nan"),
         sizes=np.array([]), lifetimes=np.array([]),
         r_squared=float("nan"),
         populations=("all",),

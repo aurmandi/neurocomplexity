@@ -131,7 +131,7 @@ class TestCriticalityResult:
         """gamma_predicted == (alpha_t - 1) / (alpha_s - 1) exactly."""
         from neurocomplexity.analysis.criticality import criticality
         rec = self._critical_rec(seed=3)
-        r = criticality(rec, bin_size_ms=(4.0, 8.0))
+        r = criticality(rec, bin_size=(4.0, 8.0))
         assert not np.isnan(r.alpha_s), "fixture produced degenerate avalanches"
         assert not np.isnan(r.alpha_t)
         expected = (r.alpha_t - 1.0) / (r.alpha_s - 1.0)
@@ -140,7 +140,7 @@ class TestCriticalityResult:
     def test_alpha_s_alpha_t_greater_than_one_when_valid(self):
         from neurocomplexity.analysis.criticality import criticality
         rec = self._critical_rec(seed=4)
-        r = criticality(rec, bin_size_ms=(4.0, 8.0))
+        r = criticality(rec, bin_size=(4.0, 8.0))
         assert not np.isnan(r.alpha_s)
         assert not np.isnan(r.alpha_t)
         assert r.alpha_s > 1.0, f"alpha_s must be > 1 for power-law tail, got {r.alpha_s}"

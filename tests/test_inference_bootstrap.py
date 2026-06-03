@@ -30,7 +30,7 @@ def _rec_for_avalanches(seed=0):
 
 def test_bootstrap_avalanche_returns_distribution():
     rec = _rec_for_avalanches()
-    result = criticality(rec, bin_size_ms=(4, 8))
+    result = criticality(rec, bin_size=(4, 8))
     inf = bootstrap_avalanche_exponents(result, rec, n=20, seed=0)
     assert inf.bootstrap_distribution.shape == (20, 2)
     assert np.asarray(inf.ci_lower).shape == (2,)
@@ -40,7 +40,7 @@ def test_bootstrap_avalanche_returns_distribution():
 
 def test_bootstrap_avalanche_reproducible():
     rec = _rec_for_avalanches()
-    result = criticality(rec, bin_size_ms=(4, 8))
+    result = criticality(rec, bin_size=(4, 8))
     a = bootstrap_avalanche_exponents(result, rec, n=10, seed=42)
     b = bootstrap_avalanche_exponents(result, rec, n=10, seed=42)
     assert np.allclose(a.bootstrap_distribution, b.bootstrap_distribution,

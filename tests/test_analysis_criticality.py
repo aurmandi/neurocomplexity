@@ -68,7 +68,7 @@ def _run(rec, **kw):
     with _warnings.catch_warnings():
         _warnings.simplefilter("ignore")
         return criticality(rec, populations=["all"],
-                           bin_size_ms=(2, 4, 8), **kw)
+                           bin_size=(2, 4, 8), **kw)
 
 
 # ---- the bug-fix assertions ---------------------------------------------
@@ -87,7 +87,7 @@ def test_alpha_t_matches_direct_pt_fit():
     r = _run(rec)
     if np.isnan(r.alpha_t):
         pytest.skip("not enough avalanches for fit")
-    bin_units = r.lifetimes / r.optimal_bin_seconds
+    bin_units = r.lifetimes / (r.optimal_bin / 1000.0)
     direct = fit_alpha(bin_units)
     assert np.isclose(r.alpha_t, direct, rtol=1e-9, atol=1e-9), (
         f"alpha_t={r.alpha_t} should equal fit_alpha(lifetimes/bs)={direct}"
@@ -103,7 +103,7 @@ def test_gamma_fit_equals_inverse_slope():
     if np.isnan(r.gamma_fit):
         pytest.skip("not enough avalanches for fit")
     log_s = np.log(r.sizes.astype(float))
-    log_t = np.log(r.lifetimes / r.optimal_bin_seconds)
+    log_t = np.log(r.lifetimes / (r.optimal_bin / 1000.0))
     slope, *_ = linregress(log_s, log_t)
     assert np.isclose(r.gamma_fit, 1.0 / slope, rtol=1e-9, atol=1e-9)
 
@@ -117,12 +117,18 @@ def test_gamma_predicted_formula():
     assert np.isclose(r.gamma_predicted, expected, rtol=1e-9)
 
 
-def test_kappa_equals_one_plus_gamma_predicted():
+def test_gamma_predicted_one_plus_offset_consistency():
+    """Sanity: gamma_predicted = (alpha_t - 1) / (alpha_s - 1), at critical
+    branching gamma_predicted should be order-1. (Legacy 'kappa' field was
+    removed because it duplicated 1+gamma_predicted; this test guards the
+    surviving canonical quantity.)"""
     rec = _critical_branching_rec()
     r = _run(rec)
-    if np.isnan(r.kappa):
-        pytest.skip("nan kappa")
-    assert np.isclose(r.kappa, 1.0 + r.gamma_predicted, rtol=1e-9)
+    if np.isnan(r.gamma_predicted):
+        pytest.skip("nan gamma_predicted")
+    # At criticality (branching m ~ 1, Galton-Watson exponents),
+    # gamma_predicted should sit in a sane range (Sethna 2001).
+    assert 0.5 < r.gamma_predicted < 3.0
 
 
 def test_alpha_t_is_not_equal_to_gamma_fit():
@@ -151,7 +157,7 @@ def test_fit_avalanche_exponents_returns_four_values():
     rec = _critical_branching_rec()
     r = _run(rec)
     alpha_s, alpha_t, gamma_fit, r2 = fit_avalanche_exponents(
-        r.sizes, r.lifetimes, r.optimal_bin_seconds)
+        r.sizes, r.lifetimes, r.optimal_bin / 1000.0)
     assert np.isclose(alpha_s, r.alpha_s, rtol=1e-9, atol=1e-9)
     assert np.isclose(alpha_t, r.alpha_t, rtol=1e-9, atol=1e-9)
     assert np.isclose(gamma_fit, r.gamma_fit, rtol=1e-9, atol=1e-9)
@@ -176,13 +182,12 @@ def test_empty_recording_returns_all_nan_with_new_fields():
     assert np.isnan(r.alpha_t)
     assert np.isnan(r.gamma_fit)
     assert np.isnan(r.gamma_predicted)
-    assert np.isnan(r.kappa)
 
 
 # ---- Tier 4 bin-selection lockdown (Phase 4 punch-list) -----------------
 
 def test_scalar_bin_no_sweep():
-    """Scalar `bin_size_ms` runs a single-bin fit and records it as such.
+    """Scalar `bin_size` runs a single-bin fit and records it as such.
 
     Guards Tier 4.14: no R²-shopping on the headline result when the
     user pre-specifies a bin.
@@ -190,14 +195,14 @@ def test_scalar_bin_no_sweep():
     rec = _critical_branching_rec()
     with _warnings.catch_warnings():
         _warnings.simplefilter("ignore")
-        r = criticality(rec, populations=["all"], bin_size_ms=4.0)
-    assert np.isclose(r.optimal_bin_seconds, 0.004)
+        r = criticality(rec, populations=["all"], bin_size=4.0)
+    assert np.isclose(r.optimal_bin / 1000.0, 0.004)
     assert len(r.fits) == 1
     assert r.params["bin_selection"] == "single"
 
 
 def test_sequence_bin_warns_and_records_full_table():
-    """Sequence `bin_size_ms` still works but emits forking-path warning.
+    """Sequence `bin_size` records the full per-bin fit table and emits notice.
 
     The `.fits` attribute exposes every bin's exponents so a reviewer can
     audit the R²-driven selection.
@@ -205,27 +210,32 @@ def test_sequence_bin_warns_and_records_full_table():
     rec = _critical_branching_rec()
     with _warnings.catch_warnings(record=True) as caught:
         _warnings.simplefilter("always")
-        r = criticality(rec, populations=["all"], bin_size_ms=(2, 4, 8, 16))
+        r = criticality(rec, populations=["all"], bin_size=(2, 4, 8, 16))
     msgs = [str(w.message) for w in caught
-            if "forking path" in str(w.message)]
+            if "sequence of candidate bin" in str(w.message)]
     assert msgs, [str(w.message) for w in caught]
     assert r.params["bin_selection"] == "r2_sweep"
     # Every attempted bin with ≥10 avalanches is in fits.
     bins_seen = {f["bin_seconds"] for f in r.fits}
     assert 0.004 in bins_seen
     # The optimal bin is one of the swept bins.
-    assert any(np.isclose(r.optimal_bin_seconds, b) for b in bins_seen)
+    assert any(np.isclose(r.optimal_bin / 1000.0, b) for b in bins_seen)
 
 
 def test_bin_size_sweep_standalone():
-    """`bin_size_sweep` returns the per-bin table without picking a winner."""
-    from neurocomplexity.analysis.criticality import bin_size_sweep
+    """`bin_size_sweep` delegates to criticality() and returns a
+    CriticalityResult whose `.fits` field holds the per-bin sweep table."""
+    from neurocomplexity.analysis.criticality import (
+        CriticalityResult,
+        bin_size_sweep,
+    )
     rec = _critical_branching_rec()
     with _warnings.catch_warnings():
         _warnings.simplefilter("ignore")
-        rows = bin_size_sweep(rec, populations=["all"],
-                              bin_size_ms=(2, 4, 8))
-    assert isinstance(rows, tuple)
-    assert all("alpha_s" in r and "r_squared" in r and "n_avalanches" in r
-               for r in rows)
-    assert len(rows) >= 1
+        result = bin_size_sweep(rec, populations=["all"],
+                                bin_size_ms=(2, 4, 8))
+    assert isinstance(result, CriticalityResult)
+    assert isinstance(result.fits, tuple)
+    assert len(result.fits) >= 1
+    assert all("alpha_s" in f and "r_squared" in f and "n_avalanches" in f
+               for f in result.fits)

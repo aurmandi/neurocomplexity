@@ -62,10 +62,15 @@ def test_figure_manifold_color_by_time_uses_colormap():
 
 
 def test_figure_manifold_pca_shows_explained_variance():
+    """Variance now rendered in the in-panel stats_box (top-right), not the
+    panel title. Search every text artist on the axis for '%'."""
     rec, r = _r()
     fig = figure_manifold(r)
-    title = fig.axes[0].get_title(loc="left")
-    assert "%" in title
+    ax = fig.axes[0]
+    texts = [t.get_text() for t in ax.texts]
+    assert any("%" in s for s in texts), (
+        f"no '%' in any text artist; texts={texts!r}"
+    )
     plt.close(fig)
 
 

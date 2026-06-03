@@ -8,8 +8,8 @@ from neurocomplexity.viz._palettes import (
 )
 
 
-def test_three_named_palettes_present():
-    assert set(PALETTES) == {"forest", "wine", "sage"}
+def test_named_palettes_present():
+    assert set(PALETTES) == {"nature", "forest", "wine", "sage"}
 
 
 def test_palette_role_keys_consistent():
@@ -29,6 +29,10 @@ def test_palette_hex_colours_canonical():
     assert PALETTES["wine"]["accent"] == "#C39B60"
     assert PALETTES["sage"]["signal"] == "#723D46"
     assert PALETTES["sage"]["accent"] == "#C9CBA3"
+    # nature (default): Okabe-Ito blue signal + vermilion accent
+    assert PALETTES["nature"]["text"] == "#000000"
+    assert PALETTES["nature"]["signal"] == "#0072B2"
+    assert PALETTES["nature"]["accent"] == "#D55E00"
 
 
 def test_categorical_is_list_of_hex():
@@ -39,8 +43,8 @@ def test_categorical_is_list_of_hex():
         assert len(cats) >= 3
 
 
-def test_default_palette_is_forest():
-    assert DEFAULT_PALETTE == "forest"
+def test_default_palette_is_nature():
+    assert DEFAULT_PALETTE == "nature"
 
 
 def test_get_palette_returns_dict():

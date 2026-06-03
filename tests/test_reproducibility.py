@@ -170,7 +170,7 @@ class TestPickleRoundtrip:
         )
         rec = trial_based_avalanches(n_units=30, n_trials=2000, bin_ms=4.0,
                                       m=1.0, max_trial_bins=200, seed=23)
-        r = criticality(rec, populations=["all"], bin_size_ms=(4.0, 8.0))
+        r = criticality(rec, populations=["all"], bin_size=(4.0, 8.0))
         _assert_result_equal(self._roundtrip(r), r)
 
     def test_dimensionality_result_roundtrip(self):

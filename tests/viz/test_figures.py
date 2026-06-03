@@ -14,9 +14,8 @@ def crit_result():
     return CriticalityResult(
         alpha_s=1.5, alpha_t=2.0, r_squared=0.95,
         sizes=sizes, lifetimes=lifetimes,
-        optimal_bin_seconds=0.004,
+        optimal_bin=4.0,
         branching=0.95,
-        kappa=1.03,
         populations=("all",),
         source=None,
         params={},
