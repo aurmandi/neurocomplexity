@@ -6,6 +6,7 @@ import numpy as np
 
 from neurocomplexity.analysis.complexity import LMCResult
 from neurocomplexity.viz._palettes import DEFAULT_PALETTE, get_palette, series_styles
+from neurocomplexity.viz._style import stats_box
 
 
 def figure_lmc_complexity(result: LMCResult, *,
@@ -68,16 +69,14 @@ def figure_lmc_complexity(result: LMCResult, *,
         _draw_population(axes[0], result, styles, null_result, p,
                           show_legend=True)
         _draw_trajectory(axes[1], result, styles, p, show_legend=False)
-        axes[0].set_title("Snapshot (per population)",
-                          loc="left", color=p["text"], fontsize=8)
-        axes[1].set_title("Trajectory  (alpha encodes time: dim→opaque)",
-                          loc="left", color=p["text"], fontsize=8)
-        fig.suptitle(
-            f"LMC complexity   bin={result.bin_size_seconds*1e3:.0f} ms"
-            + (f"   window={result.window_seconds:.0f}s step={result.step_seconds:.0f}s"
-               if result.window_seconds else ""),
-            fontsize=9, color=p["text"], y=1.02,
-        )
+        # Snapshot panel: points scatter mid-axes → top-right empty.
+        box = f"bin = {result.bin_size_seconds*1e3:.0f} ms"
+        if result.window_seconds:
+            box += (f"\nwindow = {result.window_seconds:.0f} s"
+                    f"\nstep = {result.step_seconds:.0f} s")
+        stats_box(axes[0], box, corner="tr")
+        # Trajectory panel: alpha-encoded time, dim→opaque (caption-level info)
+        stats_box(axes[1], box, corner="tr")
         return fig
 
     if ax is None:
@@ -87,17 +86,9 @@ def figure_lmc_complexity(result: LMCResult, *,
 
     if k == "population":
         _draw_population(ax, result, styles, null_result, p, show_legend=True)
-        ax.set_title(
-            f"LMC C vs H   bin={result.bin_size_seconds*1e3:.0f} ms",
-            loc="left", fontsize=8, color=p["text"],
-        )
     else:
         _draw_trajectory(ax, result, styles, p, show_legend=True)
-        ax.set_title(
-            f"LMC trajectory  (alpha: time)   "
-            f"bin={result.bin_size_seconds*1e3:.0f} ms",
-            loc="left", fontsize=8, color=p["text"],
-        )
+    stats_box(ax, f"bin = {result.bin_size_seconds*1e3:.0f} ms", corner="tr")
     return fig
 
 

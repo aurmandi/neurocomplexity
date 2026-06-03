@@ -47,7 +47,9 @@ import numpy as np
 
 from neurocomplexity.inference.results import InferenceResult
 from neurocomplexity.viz._palettes import DEFAULT_PALETTE
-from neurocomplexity.viz._style import _apply_panel_label, _resolve_palette_and_axes
+from neurocomplexity.viz._style import (
+    _apply_panel_label, _resolve_palette_and_axes, stats_box,
+)
 
 
 def _as_scalar(x):
@@ -107,25 +109,30 @@ def figure_bootstrap(
                 linewidth=0.4, zorder=2)
         ax.set_ylabel("Count")
 
+    # CI band: soft neutral grey so the observed-line (signal) remains the
+    # visual anchor of the panel.
     if lo is not None and hi is not None:
-        ax.axvspan(lo, hi, color=p["accent"], alpha=0.20, zorder=1,
+        ax.axvspan(lo, hi, color="#BFBFBF", alpha=0.30, zorder=1,
                    label=f"{int(round(result.ci_level * 100))}% CI")
 
     if observed is not None:
-        ax.axvline(observed, color=p["signal"], lw=1.3, zorder=3,
+        ax.axvline(observed, color=p["accent"], lw=1.3, zorder=3,
                    label=f"observed = {observed:.3g}")
 
     ax.set_xlabel(f"{result.statistic_name} (bootstrap replicates)")
 
     # Legend + stats annotation placed ABOVE the data so neither obscures the
     # histogram. Stats on the left of the title strip, legend on the right.
-    info = f"n = {result.n_resamples}"
     if lo is not None and hi is not None and observed is not None:
-        info = f"{observed:.3g} [{lo:.3g}, {hi:.3g}]   n = {result.n_resamples}"
-    ax.set_title(info, loc="left", fontsize=6.5, color=p["text"], pad=8)
-    ax.legend(loc="lower right", bbox_to_anchor=(1.0, 1.02), ncol=2,
-              frameon=False, handlelength=1.6, borderpad=0.3, fontsize=6.5,
-              bbox_transform=ax.transAxes)
+        info = (f"observed = {observed:.3g}\n"
+                f"CI = [{lo:.3g}, {hi:.3g}]\n"
+                f"n = {result.n_resamples}")
+    else:
+        info = f"n = {result.n_resamples}"
+    # Stats box (bigger) → TL; legend (compact) → TR.
+    stats_box(ax, info, corner="tl")
+    ax.legend(loc="upper right", frameon=False, handlelength=1.6,
+              borderpad=0.3)
 
     _apply_panel_label(ax, panel_label)
     return fig
@@ -205,20 +212,18 @@ def figure_null_test(
     ax.set_ylabel("Count")
 
     # Stats above-left, legend above-right (outside the data, never overlaps).
-    info_parts = []
+    lines = []
     if pval is not None:
-        info_parts.append(f"p = {pval:.3f}")
+        lines.append(f"p = {pval:.3f}")
     if pval_fdr is not None and (pval is None or abs(pval_fdr - pval) > 1e-9):
-        info_parts.append(f"p_FDR = {pval_fdr:.3f}")
+        lines.append(f"$p_\\mathrm{{FDR}}$ = {pval_fdr:.3f}")
     eff = _as_scalar(result.effect_size)
     if eff is not None:
-        info_parts.append(f"effect = {eff:.3g}")
-    info_parts.append(f"n = {result.n_resamples}")
-    ax.set_title("   ".join(info_parts), loc="left", fontsize=6.5,
-                 color=p["text"], pad=8)
-    ax.legend(loc="lower right", bbox_to_anchor=(1.0, 1.02), ncol=2,
-              frameon=False, handlelength=1.6, borderpad=0.3, fontsize=6.5,
-              bbox_transform=ax.transAxes)
+        lines.append(f"effect = {eff:.3g}")
+    lines.append(f"n = {result.n_resamples}")
+    stats_box(ax, "\n".join(lines), corner="tr")
+    ax.legend(loc="upper left", frameon=False, handlelength=1.6,
+              borderpad=0.3)
 
     _apply_panel_label(ax, panel_label)
     return fig
@@ -358,9 +363,16 @@ def figure_significance_matrix(
 
     ax.set_xticks(np.arange(n_cols))
     ax.set_yticks(np.arange(n_rows))
-    ax.set_xticklabels(col_labels if col_labels else np.arange(n_cols))
-    ax.set_yticklabels(row_labels if row_labels else np.arange(n_rows))
-    ax.tick_params(top=False, right=False, length=2)
+    xl = list(col_labels) if col_labels else list(np.arange(n_cols))
+    yl = list(row_labels) if row_labels else list(np.arange(n_rows))
+    # Auto-rotate long x-tick labels (≥6 unit IDs would otherwise overlap).
+    rot_x = 45 if len(xl) >= 6 else 0
+    ax.set_xticklabels(xl, rotation=rot_x,
+                       ha="right" if rot_x else "center",
+                       rotation_mode="anchor")
+    ax.set_yticklabels(yl)
+    ax.tick_params(top=False, right=False, length=2,
+                   labelsize=5.5 if n_cols >= 8 else 6)
 
     cb = fig.colorbar(im, ax=ax, fraction=0.04, pad=0.03)
     cb.set_label(cb_label, fontsize=6.5)
@@ -374,10 +386,11 @@ def figure_significance_matrix(
     if n_rows == n_cols:
         diag_sig = int(np.sum(np.diag(pvals) < alpha)) if pvals.size else 0
         n_sig = max(0, n_sig - diag_sig)
+    # Heatmap fills the axes; legend placed via title above
     ax.set_title(
-        f"{cb_label}   *p<{alpha:.2g}  **p<0.01  ***p<0.001   "
-        f"({n_sig}/{n_total_offdiag} sig)",
-        loc="left", fontsize=6.5, color=p["text"], pad=8,
+        f"$\\ast$ p<{alpha:.2g}   $\\ast\\ast$ p<0.01   $\\ast\\ast\\ast$ p<0.001"
+        f"      {n_sig} / {n_total_offdiag} sig",
+        loc="left", fontsize=9, pad=4,
     )
 
     _apply_panel_label(ax, panel_label)
@@ -411,8 +424,18 @@ def figure_volcano(
         raise ValueError(
             "figure_volcano requires both effect_size and p_value (or p_value_fdr)"
         )
-    eff = np.asarray(eff, dtype=float).ravel()
-    pvals = np.asarray(pvals, dtype=float).ravel()
+    eff = np.asarray(eff, dtype=float)
+    pvals = np.asarray(pvals, dtype=float)
+    # If the underlying statistic was a square pairwise matrix (e.g. TE
+    # between populations), drop the diagonal — self-pairs are not a test
+    # and stacking them at zero effect masks the off-diagonal points.
+    if eff.ndim == 2 and eff.shape[0] == eff.shape[1] and eff.shape[0] > 1:
+        n = eff.shape[0]
+        offdiag = ~np.eye(n, dtype=bool)
+        eff = eff[offdiag]
+        pvals = pvals[offdiag] if pvals.ndim == 2 else pvals.ravel()[:offdiag.sum()]
+    eff = eff.ravel()
+    pvals = pvals.ravel()
     if eff.shape != pvals.shape:
         raise ValueError(
             f"effect_size shape {eff.shape} != p_value shape {pvals.shape}"
@@ -439,19 +462,26 @@ def figure_volcano(
     down_colour = p["signal"]
 
     ax.scatter(eff[nonsig], neg_log_p[nonsig],
-               s=14, color=p["muted"], alpha=0.6, edgecolor="none",
+               s=32, color=p["muted"], alpha=0.85,
+               edgecolor=p["text"], linewidth=0.4,
                label="n.s.")
     ax.scatter(eff[sig_down], neg_log_p[sig_down],
-               s=18, color=down_colour, alpha=0.9, edgecolor="none",
+               s=36, color=down_colour, alpha=0.95,
+               edgecolor="white", linewidth=0.4,
                label=f"down (p<{alpha:.2g})")
     ax.scatter(eff[sig_up], neg_log_p[sig_up],
-               s=18, color=up_colour, alpha=0.9, edgecolor="none",
+               s=36, color=up_colour, alpha=0.95,
+               edgecolor="white", linewidth=0.4,
                label=f"up (p<{alpha:.2g})")
 
     threshold = -np.log10(alpha)
     ax.axhline(threshold, color=p["accent"], lw=0.9, ls="--",
                label=fr"$-\log_{{10}}\,\alpha$ = {threshold:.2f}")
     ax.axvline(0.0, color=p["text"], lw=0.5, ls=":")
+    # Give the panel breathing room above the threshold and below zero so
+    # markers at p_FDR=1 are not flush against the x-axis spine.
+    y_top = max(threshold * 1.15, float(np.nanmax(neg_log_p)) + 0.3)
+    ax.set_ylim(-0.12, y_top)
 
     ax.set_xlabel(
         r"Effect size (z = (observed $-$ null mean) / null SD)"
@@ -462,14 +492,17 @@ def figure_volcano(
 
     n_up = int(sig_up.sum())
     n_down = int(sig_down.sum())
-    ax.set_title(
-        f"up: {n_up}  down: {n_down}  total: {eff.size}  "
-        f"n_resamples={result.n_resamples}",
-        loc="left", fontsize=6.5, color=p["text"], pad=4,
+    # Volcano data clusters along x=0 spine → top-LEFT covers points.
+    # TR is empty because effect-size tail is sparse at high x.
+    stats_box(
+        ax,
+        f"up = {n_up}\ndown = {n_down}\ntotal = {eff.size}\n"
+        f"n = {result.n_resamples}",
+        corner="tr",
     )
     # Legend BELOW the axes so the title strip is uncluttered.
     ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.18), ncol=4,
-              frameon=False, handlelength=1.6, borderpad=0.3, fontsize=6.5,
+              frameon=False, handlelength=1.6, borderpad=0.3,
               bbox_transform=ax.transAxes)
 
     _apply_panel_label(ax, panel_label)

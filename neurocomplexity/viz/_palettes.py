@@ -1,15 +1,15 @@
-"""Three named palettes with semantic role assignments.
+"""Named palettes with semantic role assignments.
 
-The palettes follow the colour blocks specified in the v1.1 spec
-(``docs/specs/2026-05-18-visualization-rewrite.md``):
-
+* nature (default) — Nature/Cell visual identity: black chrome, Okabe-Ito
+  blue signal, Okabe-Ito vermilion accent, neutral greys
 * forest — Ebony / Space Indigo / Palm Leaf / Lilac Ash
 * wine   — Slate / Wine / Tan
 * sage   — Slate Grey / Wine Plum / Dry Sage
 
 Each palette assigns six semantic roles so all figure functions can ask the
 palette for ``text``/``signal``/``accent``/``muted``/``fill``/``categorical``
-without caring which scheme is active.
+without caring which scheme is active. The categorical cycle is the
+colourblind-safe Okabe-Ito set across every palette.
 """
 from __future__ import annotations
 
@@ -61,6 +61,19 @@ CATEGORICAL_LINESTYLES: list[str] = ["-", "--", "-.", ":"]
 
 
 PALETTES: dict[str, dict] = {
+    # Default. Mirrors the visual identity of the Nature / Cell figure style
+    # (Tufte/Wilke/Healy): black axis chrome, an Okabe-Ito blue for the primary
+    # data series, an Okabe-Ito vermilion for fits / highlights (a colourblind-
+    # safe complement to the blue), and neutral greys for reference lines and
+    # fills. The categorical cycle is the full Okabe-Ito set.
+    "nature": {
+        "text":   "#000000",
+        "signal": "#0072B2",   # Okabe-Ito blue  — primary data
+        "accent": "#D55E00",   # Okabe-Ito vermilion — fits / highlights
+        "muted":  "#999999",   # neutral grey — reference lines
+        "fill":   "#CDE3F0",   # pale blue — CI / IQR bands
+        "categorical": list(OKABE_ITO),
+    },
     # Text is always black for maximum print legibility, regardless of palette.
     "forest": {
         "text":   "#000000",
@@ -89,7 +102,7 @@ PALETTES: dict[str, dict] = {
 }
 
 
-DEFAULT_PALETTE = "forest"
+DEFAULT_PALETTE = "nature"
 
 
 def get_palette(name: str) -> dict:

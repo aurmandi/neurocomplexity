@@ -18,6 +18,7 @@ import numpy as np
 
 from neurocomplexity.analysis.transfer_entropy import TransferEntropyResult
 from neurocomplexity.viz._palettes import DEFAULT_PALETTE, get_palette
+from neurocomplexity.viz._style import stats_box
 
 
 def _categorical_colors(palette_name: str, n: int) -> list[str]:
@@ -148,10 +149,20 @@ def figure_te_network(te_result: TransferEntropyResult,
     else:
         fig = ax.figure
 
+    # Node size scales DOWN as node count grows so labels offset radially
+    # outside the marker do not crash into adjacent node circles.
+    n_nodes = max(len(G.nodes()), 1)
+    if n_nodes <= 6:
+        node_px, label_pt, label_offset = 520, 8.5, 0.20
+    elif n_nodes <= 12:
+        node_px, label_pt, label_offset = 320, 7.5, 0.24
+    else:
+        node_px, label_pt, label_offset = 180, 6.5, 0.30
+
     node_colors = _categorical_colors(palette, len(G.nodes()))
-    nx.draw_networkx_nodes(G, pos, ax=ax, node_size=600,
+    nx.draw_networkx_nodes(G, pos, ax=ax, node_size=node_px,
                            node_color=node_colors, edgecolors=p["text"],
-                           linewidths=0.8)
+                           linewidths=0.7)
 
     # Edge widths.
     if n_edges > 0:
@@ -161,43 +172,44 @@ def figure_te_network(te_result: TransferEntropyResult,
             G, pos, ax=ax,
             width=widths,
             edge_color=p["signal"],
-            arrows=True, arrowstyle="-|>", arrowsize=14,
+            arrows=True, arrowstyle="-|>", arrowsize=10,
             connectionstyle="arc3,rad=0.15",
-            node_size=600,
+            node_size=node_px,
+            alpha=0.85,
         )
 
-    # (Skip nx default labels — we draw our own offset labels below.)
-    # Labels offset OUTSIDE the node circles so dark text on dark fill is
-    # never an issue, and the node label cannot be clipped by the figure
-    # margin. networkx places labels at pos; we shift each label radially
-    # away from layout centre.
+    # Labels offset radially OUTSIDE the node circle. With many nodes the
+    # offset grows so the white-backed label never overlaps the node disk
+    # nor a neighbour's label.
     if pos:
         cx = float(np.mean([v[0] for v in pos.values()]))
         cy = float(np.mean([v[1] for v in pos.values()]))
         for node, (x, y) in pos.items():
             dx, dy = x - cx, y - cy
             norm = float(np.hypot(dx, dy)) or 1.0
-            offset = 0.18
-            tx = x + (dx / norm) * offset
-            ty = y + (dy / norm) * offset
-            ax.text(tx, ty, str(node), color=p["text"], fontsize=9,
+            tx = x + (dx / norm) * label_offset
+            ty = y + (dy / norm) * label_offset
+            ax.text(tx, ty, str(node), color=p["text"], fontsize=label_pt,
                     ha="center", va="center",
-                    bbox=dict(boxstyle="round,pad=0.18",
-                              facecolor="white", alpha=0.8,
+                    bbox=dict(boxstyle="round,pad=0.14",
+                              facecolor="white", alpha=0.85,
                               edgecolor="none"))
 
     ax.set_axis_off()
     # Expand axis box so offset labels are not clipped.
-    ax.set_xlim(-1.5, 1.5)
-    ax.set_ylim(-1.5, 1.5)
+    lim = 1.5 + label_offset
+    ax.set_xlim(-lim, lim)
+    ax.set_ylim(-lim, lim)
     ax.set_aspect("equal")
 
-    title = f"TE network   alpha={alpha}   edges={n_edges}/{n_total}"
+    box = (fr"$\alpha$ = {alpha}" + "\n"
+           f"edges = {n_edges} / {n_total}")
     if n_edges == 0:
-        title += "   (no significant edges)"
         ax.text(0.5, 0.02,
                 "no FDR-significant edges at this α",
                 transform=ax.transAxes, ha="center", va="bottom",
                 fontsize=7, color=p["muted"], style="italic")
-    ax.set_title(title, color=p["text"], loc="left")
+    # Circular node layout fills the frame; top-right corner is the only
+    # consistently empty zone (top-left is reserved for the panel letter).
+    stats_box(ax, box, corner="tr")
     return fig

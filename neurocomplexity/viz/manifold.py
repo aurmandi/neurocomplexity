@@ -6,6 +6,7 @@ import numpy as np
 
 from neurocomplexity.analysis.manifold import ManifoldResult
 from neurocomplexity.viz._palettes import DEFAULT_PALETTE, get_palette
+from neurocomplexity.viz._style import stats_box
 
 
 def _make_time_cmap(palette: str):
@@ -159,12 +160,16 @@ def figure_manifold(result: ManifoldResult, *,
     if dims == 3:
         target_ax.set_zlabel(f"{result.method.upper()}-3", color=p["text"])
 
-    if result.method == "pca" and result.explained_variance_ratio is not None:
-        ev = result.explained_variance_ratio
-        pct = " / ".join(f"{100*v:.1f}%" for v in ev)
-        title = f"{result.method.upper()} dims={dims} n_units={result.n_units} ({pct})"
-    else:
-        title = f"{result.method.upper()} dims={dims} n_units={result.n_units}"
-    target_ax.set_title(title, color=p["text"], loc="left")
+    if dims == 2:
+        if result.method == "pca" and result.explained_variance_ratio is not None:
+            ev = result.explained_variance_ratio
+            pct = " / ".join(f"{100*v:.1f}%" for v in ev)
+            box = f"N = {result.n_units}\nvar = {pct}"
+        else:
+            box = f"N = {result.n_units}"
+        # Manifold trajectories typically fill the cloud body → top-right
+        # corner is empty unless the projection happens to drift up-right;
+        # the auto-axis percentile-clip above prevents that for spike data.
+        stats_box(target_ax, box, corner="tr")
 
     return fig

@@ -6,6 +6,7 @@ import numpy as np
 
 from neurocomplexity.analysis.mse import MSEResult
 from neurocomplexity.viz._palettes import DEFAULT_PALETTE, get_palette, series_styles
+from neurocomplexity.viz._style import stats_box
 
 
 def figure_mse(result: MSEResult, *,
@@ -56,23 +57,20 @@ def figure_mse(result: MSEResult, *,
         nan_scales.update(int(s) for s in scales_arr[~finite])
     ax.set_xlabel(r"Scale $\tau$", color=p["text"])
     ax.set_ylabel("SampEn", color=p["text"])
-    ax.set_title(
-        f"MSE   m={result.m}  r={result.r_factor:g}·SD  "
-        f"bin={result.bin_size_seconds*1e3:.0f} ms"
-        + ("  (with surrogate envelope)" if envelope_drawn else ""),
-        loc="left", fontsize=8, color=p["text"], pad=8,
-    )
+    # Parameters-only box, top-right (curves decay leftward → corner free).
+    # No analysis name — panel label / caption say what this panel is.
+    box = (f"bin = {result.bin_size_seconds*1e3:.0f} ms\n"
+           f"$\\tau_{{max}}$ = {int(np.max(result.scales))}\n"
+           f"m = {result.m}   r = {result.r_factor:g}·SD")
+    if envelope_drawn:
+        box += "\nsurrogate envelope"
+    stats_box(ax, box, corner="tr")
     if nan_scales:
         scales_txt = ", ".join(str(s) for s in sorted(nan_scales))
         ax.text(0.98, 0.02,
                 f"SampEn undefined at scale {scales_txt} (omitted)",
                 transform=ax.transAxes, ha="right", va="bottom",
-                fontsize=5.5, color=p["muted"])
-    elif not envelope_drawn and null_result is None:
-        ax.text(0.98, 0.02,
-                "pass null_result= for surrogate envelope",
-                transform=ax.transAxes, ha="right", va="bottom",
-                fontsize=5.5, color=p["muted"])
+                fontsize=6.0, color=p["muted"])
     if len(result.populations) > 1:
         ax.legend(frameon=False, loc="upper left",
                   bbox_to_anchor=(0.0, 1.18),

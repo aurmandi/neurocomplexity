@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from neurocomplexity.viz._palettes import DEFAULT_PALETTE, get_palette
-from neurocomplexity.viz._style import _apply_panel_label
+from neurocomplexity.viz._style import _apply_panel_label, stats_box
 
 # Viridis is the matplotlib default perceptually-uniform sequential colormap
 # (Smith & van der Walt 2015) and the de-facto standard in the avalanche shape-
@@ -35,8 +35,7 @@ def _draw_collapsed(ax, result, *, p, cmap, colors, show_annot=True):
                         zorder=3, label="IQR")
         ax.plot(u, med, "-", color=p["accent"], lw=1.6, zorder=4,
                 label="median")
-        ax.legend(loc="lower right", fontsize=6, handlelength=1.6,
-                  frameon=False)
+        ax.legend(loc="lower right", handlelength=1.6, frameon=False)
         # Robust y-limits: percentile clip so outlier shapes don't dominate.
         finite = ys[np.isfinite(ys)]
         if finite.size:
@@ -47,11 +46,13 @@ def _draw_collapsed(ax, result, *, p, cmap, colors, show_annot=True):
     ax.set_xlabel(r"$t/T$")
     ax.set_ylabel(r"$\langle a\rangle / T^{\gamma-1}$")
     if show_annot:
-        ax.text(0.98, 0.97,
-                fr"$\gamma={result.gamma:.3f}$" + "\n" +
-                f"resid$={result.residual:.2g}$",
-                transform=ax.transAxes, ha="right", va="top",
-                fontsize=6, color=p["text"])
+        # Collapsed curves form arch peaking centre → top-LEFT empty.
+        stats_box(
+            ax,
+            fr"$\gamma$ = {result.gamma:.3f}" + "\n"
+            f"resid = {result.residual:.2g}",
+            corner="tl",
+        )
 
 
 def figure_shape_collapse(
