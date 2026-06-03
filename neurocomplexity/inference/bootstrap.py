@@ -34,67 +34,99 @@ from neurocomplexity.analysis.shape_collapse import (
 from neurocomplexity.inference.results import InferenceResult
 
 
-def _ci_from_dist(dist: np.ndarray, level: float, observed=None):
+def _ci_from_dist(dist: np.ndarray, level: float, observed=None,
+                  method: str = "bca"):
     """Bootstrap CI.
 
-    If ``observed`` is None, returns the naive percentile interval. If
-    ``observed`` is given, applies the Efron (1987) bias-correction (BC):
-    percentile thresholds are shifted by ``z0``, the standard-normal
-    quantile of the fraction of bootstrap replicates below the observed
-    statistic. This corrects coverage for estimators with finite-sample
-    bias (e.g. Wilting-Priesemann m̂ near m=1, where naive percentile
-    intervals systematically under-cover the true value).
+    Parameters
+    ----------
+    dist
+        Bootstrap distribution. First axis is the replicate axis; trailing
+        axes (if any) carry vector-valued statistics.
+    level
+        Confidence level (e.g. 0.95).
+    observed
+        Observed point estimate. Required for ``method`` in {"bca", "bc"};
+        ignored (and falls back to percentile) when ``None`` or when
+        ``method == "percentile"``.
+    method
+        ``"bca"`` (default) — bias-corrected and accelerated bootstrap
+        (Efron 1987; DiCiccio & Efron 1996). Uses ``z0`` from the
+        empirical CDF of the bootstrap dist at ``observed`` and acceleration
+        ``a`` from the third / second central-moment ratio of the bootstrap
+        distribution (Efron & Tibshirani 1993, eq. 14.15). Recommended for
+        near-boundary estimators such as the Wilting--Priesemann m-hat
+        approaching 1, where BC under-covers.
+        ``"bc"`` — legacy bias-correction only (``z0`` without acceleration).
+        ``"percentile"`` — naive percentile (no correction).
 
-    Reference: Efron B. (1987) "Better bootstrap confidence intervals."
-    JASA 82(397): 171-185.
-
-    Caveats:
-      * For a component whose bootstrap replicates have ~zero variance,
-        the BC interval can degenerate to NaN. Callers receive NaN bounds
-        for that component rather than a misleadingly narrow interval.
-      * BC is applied independently per component for vector statistics.
-        That assumes component-wise bias estimates are stable; with very
-        small ``n_resamples`` (n < 30) consider increasing n or falling
-        back to the naive percentile path by passing ``observed=None``.
+    Notes
+    -----
+    * For a component whose bootstrap replicates have ~zero variance,
+      the corrected interval can degenerate to NaN. Callers receive NaN
+      bounds for that component rather than a misleadingly narrow interval.
+    * Corrections are applied independently per component for vector
+      statistics. That assumes component-wise bias estimates are stable;
+      with very small ``n_resamples`` (n < 30) consider increasing n or
+      falling back to the percentile path.
     """
     lo_q = (1 - level) / 2
     hi_q = (1 + level) / 2
-    if observed is None:
+    if observed is None or method == "percentile":
         lo = np.nanpercentile(dist, lo_q * 100, axis=0)
         hi = np.nanpercentile(dist, hi_q * 100, axis=0)
         return lo, hi
+    if method not in ("bca", "bc"):
+        raise ValueError(f"method must be one of bca/bc/percentile; got {method!r}")
 
     z_lo = norm.ppf(lo_q)
     z_hi = norm.ppf(hi_q)
     obs = np.asarray(observed, dtype=float)
 
-    def _bc_one(d, o):
+    def _corrected_one(d, o):
         d = d[~np.isnan(d)]
         if d.size < 5:
             return float("nan"), float("nan")
-        # Empirical proportion of bootstrap replicates strictly below
-        # the observed value, then mapped to a normal quantile.
+        # Bias-correction z0: standard-normal quantile of empirical CDF at obs.
         p = float(np.mean(d < o))
-        # Clip to avoid infinities when all replicates are on one side.
         p = min(max(p, 0.5 / d.size), 1 - 0.5 / d.size)
         z0 = norm.ppf(p)
-        a_lo = float(norm.cdf(2 * z0 + z_lo))
-        a_hi = float(norm.cdf(2 * z0 + z_hi))
-        lo_v = float(np.nanpercentile(d, a_lo * 100))
-        hi_v = float(np.nanpercentile(d, a_hi * 100))
+        # Acceleration: skewness of bootstrap dist scaled by 1/6
+        # (Efron & Tibshirani 1993, eq. 14.15; bootstrap-based approximation
+        # to the jackknife acceleration when only the bootstrap dist is
+        # available).
+        if method == "bca":
+            mu = float(np.nanmean(d))
+            diffs = mu - d
+            num = float(np.nansum(diffs ** 3))
+            den = float(np.nansum(diffs ** 2)) ** 1.5
+            a = (num / (6.0 * den)) if den > 1e-12 else 0.0
+        else:
+            a = 0.0  # plain BC
+        def _adj_q(z_q):
+            numer = z0 + z_q
+            denom = 1.0 - a * numer
+            if abs(denom) < 1e-12:
+                return float(norm.cdf(z_q))
+            return float(norm.cdf(z0 + numer / denom))
+        q_lo = _adj_q(z_lo)
+        q_hi = _adj_q(z_hi)
+        lo_v = float(np.nanpercentile(d, q_lo * 100))
+        hi_v = float(np.nanpercentile(d, q_hi * 100))
         return lo_v, hi_v
 
     if dist.ndim == 1:
-        lo_v, hi_v = _bc_one(dist, float(obs))
+        lo_v, hi_v = _corrected_one(dist, float(obs))
         return lo_v, hi_v
-    # vector-valued statistic: apply BC independently per component
+    # vector-valued statistic: apply correction independently per component
     out_shape = dist.shape[1:]
     lo_out = np.empty(out_shape)
     hi_out = np.empty(out_shape)
     flat_dist = dist.reshape(dist.shape[0], -1)
     flat_obs = obs.reshape(-1)
     for i in range(flat_dist.shape[1]):
-        lo_out.flat[i], hi_out.flat[i] = _bc_one(flat_dist[:, i], float(flat_obs[i]))
+        lo_out.flat[i], hi_out.flat[i] = _corrected_one(
+            flat_dist[:, i], float(flat_obs[i]))
     return lo_out, hi_out
 
 
@@ -129,7 +161,7 @@ def bootstrap_avalanche_exponents(
     """Bootstrap (alpha_s, alpha_t) by resampling avalanches with replacement."""
     sizes = np.asarray(result.sizes, dtype=np.int64)
     lifetimes = np.asarray(result.lifetimes, dtype=float)
-    bs = float(result.optimal_bin_seconds)
+    bs = float(result.optimal_bin / 1000.0)
     n_av = sizes.size
     if n_av < 50:
         raise ValueError(f"too few avalanches ({n_av}) to bootstrap")
@@ -204,7 +236,7 @@ def bootstrap_branching_ratio(
     result: BranchingResult,
     rec,
     *,
-    n: int = 1000,
+    n: int = 2000,
     seed: int = 0,
     ci_level: float = 0.95,
     block_seconds: float = 10.0,
@@ -225,7 +257,8 @@ def bootstrap_branching_ratio(
     rec
         The recording the result was computed on.
     n
-        Number of bootstrap draws (default 1000).
+        Number of bootstrap draws (default 2000 — required for stable BCa
+        tail estimates near boundaries such as m=1).
     seed
         Master RNG seed.
     ci_level
@@ -442,10 +475,13 @@ def bootstrap(
 
     Notes
     -----
-    Confidence intervals use the BC (bias-corrected) method when an
-    ``observed`` is provided; otherwise fall back to the percentile
-    method. BC may be unstable for vector statistics whose individual
-    components have near-zero null variance — inspect
+    Confidence intervals use the BCa (bias-corrected and accelerated)
+    method when an ``observed`` is provided; otherwise fall back to the
+    percentile method. BCa is essential for near-boundary estimators
+    (e.g. branching ratio m -> 1) where the bootstrap distribution is
+    strongly skewed and plain percentile or BC intervals under-cover.
+    BCa may be unstable for vector statistics whose individual
+    components have near-zero variance — inspect
     ``bootstrap_distribution`` and pre-screen those entries in your
     pipeline.
     """
