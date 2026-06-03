@@ -23,13 +23,19 @@ sys.path.insert(
 
 from neurocomplexity.benchmarks.runner import list_cases, run_case
 
-N_SEEDS = 10
-N_REPS = 200
+N_SEEDS = 5
+N_REPS = 50
+# The participation-ratio dimensionality sweep takes ~3.5 hours per run
+# (it sweeps a range of latent ranks at fixed n_reps), so it is excluded
+# from the default sweep and characterised separately.
+SKIP_CASES = {"dimensionality.participation_ratio"}
 
 
 def main():
-    case_names = list_cases()
+    case_names = [n for n in list_cases() if n not in SKIP_CASES]
     print(f"\nSeed sensitivity sweep: {len(case_names)} cases x {N_SEEDS} seeds x {N_REPS} reps")
+    if SKIP_CASES:
+        print(f"  (skipping: {', '.join(sorted(SKIP_CASES))})")
     print("=" * 78)
 
     results_by_case: dict[str, list[float]] = {}
