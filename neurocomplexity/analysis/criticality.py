@@ -209,11 +209,14 @@ def fit_avalanche_exponents(sizes: np.ndarray, lifetimes: np.ndarray,
     # P(T) DIRECT fit. Use lifetimes in bin units to mirror alpha_s convention.
     alpha_t = fit_alpha(lifetimes / bin_size)
     log_s = np.log(sizes.astype(float))
-    log_t = np.log(lifetimes / bin_size)
-    if np.var(log_s) == 0 or np.var(log_t) == 0:
+    # log of lifetime in *bin units* (dimensionless); divisor matches
+    # alpha_t's convention above so the (alpha_t, gamma_fit) pair shares
+    # units. Renamed from `log_t` to make the units explicit.
+    log_t_bins = np.log(lifetimes / bin_size)
+    if np.var(log_s) == 0 or np.var(log_t_bins) == 0:
         return alpha_s, alpha_t, float("nan"), float("nan")
     try:
-        slope, _, r_val, _, _ = linregress(log_s, log_t)
+        slope, _, r_val, _, _ = linregress(log_s, log_t_bins)
     except ValueError:
         return alpha_s, alpha_t, float("nan"), float("nan")
     gamma_fit = 1.0 / slope if slope != 0 else float("nan")
@@ -317,11 +320,12 @@ def criticality(rec: SpikeRecording,
         # alpha_t from DIRECT P(T) fit (lifetimes in bin units).
         alpha_t = fit_alpha(lifetimes / bs)
         log_s = np.log(sizes.astype(float))
-        log_t = np.log(lifetimes / bs)
-        if np.var(log_s) == 0 or np.var(log_t) == 0:
+        # log of lifetime in *bin units* (dimensionless); units explicit.
+        log_t_bins = np.log(lifetimes / bs)
+        if np.var(log_s) == 0 or np.var(log_t_bins) == 0:
             continue
         try:
-            slope, intercept, r_val, _, _ = linregress(log_s, log_t)
+            slope, intercept, r_val, _, _ = linregress(log_s, log_t_bins)
         except ValueError:
             continue
         r2 = float(r_val ** 2)
