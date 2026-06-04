@@ -179,12 +179,70 @@ def _redundancy_imin(joint: np.ndarray) -> float:
     return float(max(r, 0.0))
 
 
+def _redundancy_iccs(joint: np.ndarray) -> float:
+    """Ince (2017) I_ccs redundancy: pointwise common change in surprisal.
+
+    For each joint outcome ``(y, s1, s2)`` with positive probability,
+    compute the pointwise informations
+    ``i_k = log p(y | s_k) - log p(y)`` from each source ``k``. The
+    pointwise common change in surprisal is
+
+        Δh_common = sign · min(|i1|, |i2|)   if sign(i1) == sign(i2)
+                  = 0                         otherwise
+
+    and ``I_ccs = sum p(y, s1, s2) * Δh_common``. This is the redundancy
+    measure that, unlike Williams & Beer I_min, correctly assigns zero
+    redundancy to the canonical XOR distribution (Ince 2017, §3).
+
+    Reference: Ince, R. A. A. (2017). Measuring Multivariate Redundant
+    Information with Pointwise Common Change in Surprisal. *Entropy*,
+    19(7), 318. https://doi.org/10.3390/e19070318
+    """
+    total = float(joint.sum())
+    if total <= 0:
+        return 0.0
+    p_xyz = joint / total                       # (L_y, L_s1, L_s2)
+    p_y = p_xyz.sum(axis=(1, 2))                # (L_y,)
+    p_s1 = p_xyz.sum(axis=(0, 2))               # (L_s1,)
+    p_s2 = p_xyz.sum(axis=(0, 1))               # (L_s2,)
+    p_y_s1 = p_xyz.sum(axis=2)                  # (L_y, L_s1)
+    p_y_s2 = p_xyz.sum(axis=1)                  # (L_y, L_s2)
+
+    r = 0.0
+    L_y, L_s1, L_s2 = p_xyz.shape
+    for yv in range(L_y):
+        if p_y[yv] <= 0:
+            continue
+        log_py = np.log(p_y[yv])
+        for v1 in range(L_s1):
+            if p_y_s1[yv, v1] <= 0 or p_s1[v1] <= 0:
+                continue
+            # i1 = log p(y | s1) - log p(y)
+            i1 = np.log(p_y_s1[yv, v1] / p_s1[v1]) - log_py
+            for v2 in range(L_s2):
+                if p_xyz[yv, v1, v2] <= 0:
+                    continue
+                if p_y_s2[yv, v2] <= 0 or p_s2[v2] <= 0:
+                    continue
+                i2 = np.log(p_y_s2[yv, v2] / p_s2[v2]) - log_py
+                if i1 >= 0 and i2 >= 0:
+                    common = min(i1, i2)
+                elif i1 < 0 and i2 < 0:
+                    common = max(i1, i2)  # both negative → least-negative
+                else:
+                    continue  # disagreeing signs → no common change
+                r += float(p_xyz[yv, v1, v2]) * float(common)
+    return float(max(r, 0.0))
+
+
 def partial_information(rec: SpikeRecording,
                          target_pop: str,
                          sources: Sequence[str],
                          bin_size_ms: float = 5.0,
                          delay_bins: int = 1,
                          n_levels: int = 3,
+                         *,
+                         redundancy: str = "imin",
                          ) -> PIDResult:
     """Bivariate PID — sources must be exactly 2 populations.
 
@@ -196,6 +254,23 @@ def partial_information(rec: SpikeRecording,
     n_levels    : number of quantile-equal discretisation levels per signal
                   (default 3). Use 2 to recover the legacy binary estimator,
                   but expect zero MI on busy populations.
+    redundancy  : redundancy functional.
+
+                  * ``"imin"`` (default, backwards-compatible) — the
+                    Williams & Beer (2010) ``I_min`` measure: takes the
+                    minimum specific information about each target outcome.
+                    Closed-form and conservative; reports nonzero
+                    redundancy on canonical XOR.
+                  * ``"iccs"`` — the Ince (2017) ``I_ccs`` measure:
+                    pointwise common change in surprisal. Assigns
+                    redundancy only when both sources change a target's
+                    pointwise information in the same direction, and
+                    correctly returns ≈ 0 redundancy on canonical XOR.
+
+                  Both estimators respect the PID identities
+                  ``U_k = I(Y; S_k) − R`` and
+                  ``S = I(Y; S1, S2) − R − U1 − U2`` with the standard
+                  clipping at zero.
     """
     from neurocomplexity._warnings import _warn_if_uncurated
     _warn_if_uncurated(rec, "partial_information")
@@ -203,6 +278,10 @@ def partial_information(rec: SpikeRecording,
         raise ValueError("PID v0 supports exactly 2 sources")
     if n_levels < 2:
         raise ValueError("n_levels must be >= 2")
+    if redundancy not in {"imin", "iccs"}:
+        raise ValueError(
+            f"unknown redundancy={redundancy!r}; choose 'imin' or 'iccs'"
+        )
     s1, s2 = sources
     bs = float(bin_size_ms) / 1000.0
 
@@ -254,17 +333,21 @@ def partial_information(rec: SpikeRecording,
     # Joint (S1, S2) as a single discrete variable for total MI
     total_mi = _mi_mm(joint.reshape(L_y, L_s1 * L_s2))
 
-    redundancy = _redundancy_imin(joint)
-    # Clip redundancy to be no larger than min(I(Y;S1), I(Y;S2)) — guaranteed by
-    # I_min but floats can violate it after MM correction.
-    redundancy = min(redundancy, i_y_s1, i_y_s2)
+    if redundancy == "imin":
+        red_value = _redundancy_imin(joint)
+    else:  # "iccs"
+        red_value = _redundancy_iccs(joint)
+    # Clip redundancy to be no larger than min(I(Y;S1), I(Y;S2)) — guaranteed
+    # for both I_min and I_ccs in theory but float arithmetic can violate it
+    # after MM correction; the clip preserves the standard PID identities.
+    red_value = min(red_value, i_y_s1, i_y_s2)
 
-    unique_1 = max(0.0, i_y_s1 - redundancy)
-    unique_2 = max(0.0, i_y_s2 - redundancy)
-    synergy  = max(0.0, total_mi - redundancy - unique_1 - unique_2)
+    unique_1 = max(0.0, i_y_s1 - red_value)
+    unique_2 = max(0.0, i_y_s2 - red_value)
+    synergy  = max(0.0, total_mi - red_value - unique_1 - unique_2)
 
     return PIDResult(
-        redundancy=float(redundancy),
+        redundancy=float(red_value),
         unique_1=float(unique_1),
         unique_2=float(unique_2),
         synergy=float(synergy),
@@ -276,5 +359,6 @@ def partial_information(rec: SpikeRecording,
         source=rec.source,
         params={"target_pop": target_pop, "sources": list(sources),
                 "bin_size_ms": float(bin_size_ms),
-                "delay_bins": int(delay_bins), "n_levels": int(n_levels)},
+                "delay_bins": int(delay_bins), "n_levels": int(n_levels),
+                "redundancy": redundancy},
     )
