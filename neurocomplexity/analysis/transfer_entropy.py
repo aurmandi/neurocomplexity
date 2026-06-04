@@ -138,8 +138,17 @@ def _binary_schreiber_te(source_ts: np.ndarray, target_ts: np.ndarray,
         raise ValueError(
             f"unknown bias={bias!r}; choose 'miller_madow', 'roulston', or 'none'"
         )
-    te -= correction
-    return max(0.0, float(te))
+    # Two-stage clamp (A9): the plug-in TE itself can drift slightly
+    # negative on finite samples; we clamp it to zero BEFORE subtracting
+    # the Miller-Madow correction so that the correction is never
+    # double-applied to an already-zero estimator. Without this, an
+    # already-negative plug-in TE could be pushed further negative and
+    # then re-clamped, biasing the final estimator upward in low-signal
+    # regimes (because the "raw" zero gets transferred to the corrected
+    # estimator without ever paying the correction cost).
+    te_raw = max(0.0, float(te))
+    te_corrected = te_raw - correction
+    return max(0.0, te_corrected)
 
 
 def transfer_entropy(rec: SpikeRecording,
