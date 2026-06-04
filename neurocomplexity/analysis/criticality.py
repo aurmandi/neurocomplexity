@@ -196,8 +196,72 @@ def fit_alpha_loglog(data: np.ndarray, xmin: int = 1) -> float:
     return -float(slope)
 
 
+def _fit_slope(log_s: np.ndarray, log_t_bins: np.ndarray,
+               regression: str) -> tuple[float, float]:
+    """Return ``(slope, r_squared)`` for ``log_t_bins ~ slope * log_s``.
+
+    Three estimators are supported:
+
+    * ``"ols"`` (default): standard ordinary least squares (``scipy.stats.linregress``).
+      Assumes ``log_s`` is measured without error.
+    * ``"rma"``: Reduced Major Axis (Geometric Mean) regression. Slope is
+      the geometric mean of the y-on-x and x-on-y OLS slopes, with the sign
+      of the sample correlation. Appropriate when both axes carry comparable
+      measurement / sampling error, as is the case for avalanche sizes and
+      lifetimes (Smith 2009; Niklas 1994). Returns the same r_squared as OLS
+      because both estimators share the same Pearson correlation.
+    * ``"odr"``: Orthogonal Distance Regression via :mod:`scipy.odr`.
+      Minimises perpendicular residuals; appropriate when measurement
+      errors are comparable but the noise covariance is not exactly
+      symmetric. Falls back to OLS with a :class:`RuntimeWarning` if
+      ``scipy.odr`` is unavailable or fails to converge.
+    """
+    try:
+        slope_yx, _, r_val, _, _ = linregress(log_s, log_t_bins)
+    except ValueError:
+        return float("nan"), float("nan")
+    r2 = float(r_val ** 2)
+
+    if regression == "ols":
+        return float(slope_yx), r2
+
+    if regression == "rma":
+        # RMA slope = std(y) / std(x) * sign(corr(x, y)). Equivalent to
+        # sqrt(slope_yx * slope_xy) * sign(r); we use the closed form to
+        # avoid the second linregress call.
+        sx = float(np.std(log_s))
+        sy = float(np.std(log_t_bins))
+        if sx <= 0:
+            return float("nan"), r2
+        sign = 1.0 if r_val >= 0 else -1.0
+        return sign * (sy / sx), r2
+
+    if regression == "odr":
+        try:
+            from scipy import odr  # type: ignore
+            model = odr.Model(lambda B, x: B[0] * x + B[1])
+            data = odr.Data(log_s, log_t_bins)
+            beta0 = [float(slope_yx), float(np.mean(log_t_bins) - slope_yx * np.mean(log_s))]
+            result = odr.ODR(data, model, beta0=beta0).run()
+            if result.info >= 5:
+                # info >= 5 ⇒ ODR reported convergence issues; back off to OLS.
+                raise RuntimeError(f"scipy.odr did not converge (info={result.info})")
+            return float(result.beta[0]), r2
+        except Exception as exc:  # pragma: no cover - exercised by fallback test
+            _warnings.warn(
+                f"regression='odr' unavailable ({exc!r}); falling back to OLS",
+                RuntimeWarning, stacklevel=3,
+            )
+            return float(slope_yx), r2
+
+    raise ValueError(
+        f"unknown regression={regression!r}; choose 'ols', 'rma', or 'odr'"
+    )
+
+
 def fit_avalanche_exponents(sizes: np.ndarray, lifetimes: np.ndarray,
-                             bin_size: float):
+                             bin_size: float, *,
+                             regression: str = "ols"):
     """Fit (alpha_s, alpha_t, gamma_fit, r_squared) from sizes + lifetimes.
 
     * ``alpha_s`` from direct P(S) log-spaced histogram fit.
@@ -206,6 +270,14 @@ def fit_avalanche_exponents(sizes: np.ndarray, lifetimes: np.ndarray,
     * ``gamma_fit`` from <S>(T) regression: slope of log_T vs log_S → 1/slope.
     * ``r_squared`` is the R² of that scaling regression (used as
       bin-selection criterion).
+
+    Parameters
+    ----------
+    regression
+        Estimator for the slope of ``log_t_bins ~ slope * log_s``:
+        ``"ols"`` (default), ``"rma"``, or ``"odr"``. See :func:`_fit_slope`
+        for details. ``"ols"`` is kept as default for backwards compatibility;
+        ``"rma"`` is generally preferred when both axes carry sampling error.
 
     Returns ``(nan, nan, nan, nan)`` if inputs are degenerate.
     """
@@ -222,12 +294,11 @@ def fit_avalanche_exponents(sizes: np.ndarray, lifetimes: np.ndarray,
     log_t_bins = np.log(lifetimes / bin_size)
     if np.var(log_s) == 0 or np.var(log_t_bins) == 0:
         return alpha_s, alpha_t, float("nan"), float("nan")
-    try:
-        slope, _, r_val, _, _ = linregress(log_s, log_t_bins)
-    except ValueError:
-        return alpha_s, alpha_t, float("nan"), float("nan")
-    gamma_fit = 1.0 / slope if slope != 0 else float("nan")
-    return alpha_s, alpha_t, gamma_fit, float(r_val ** 2)
+    slope, r2 = _fit_slope(log_s, log_t_bins, regression=regression)
+    if not np.isfinite(slope) or slope == 0:
+        return alpha_s, alpha_t, float("nan"), r2
+    gamma_fit = 1.0 / slope
+    return alpha_s, alpha_t, gamma_fit, r2
 
 
 def _branching(counts_1d: np.ndarray) -> float:
@@ -259,6 +330,8 @@ def _branching(counts_1d: np.ndarray) -> float:
 def criticality(rec: SpikeRecording,
                 populations: Sequence[str] | None = None,
                 bin_size: float | Sequence[float] = 4.0,
+                *,
+                regression: str = "ols",
                 ) -> CriticalityResult:
     """Fit avalanche-size, lifetime, and scaling exponents at a chosen bin.
 
@@ -285,6 +358,14 @@ def criticality(rec: SpikeRecording,
         available on the returned object as ``result.fits``. As a
         standalone alternative that returns only the table without
         picking a winner, use :func:`bin_size_sweep`.
+    regression
+        Estimator used for the ``<S>(T)`` regression that produces
+        ``gamma_fit``. ``"ols"`` (default — ordinary least squares,
+        backwards-compatible) treats ``log_s`` as error-free; ``"rma"``
+        (Reduced Major Axis / Geometric Mean) and ``"odr"`` (Orthogonal
+        Distance Regression) treat both axes symmetrically and are
+        generally preferred when both sizes and lifetimes carry sampling
+        error. See :func:`_fit_slope`.
 
     Returns
     -------
@@ -326,9 +407,15 @@ def criticality(rec: SpikeRecording,
             stacklevel=2,
         )
 
+    if regression not in {"ols", "rma", "odr"}:
+        raise ValueError(
+            f"unknown regression={regression!r}; choose 'ols', 'rma', or 'odr'"
+        )
+
     _params = {"populations": list(populations),
                "bin_size": list(bin_size_seq),
-               "bin_selection": "single" if single_bin else "r2_sweep"}
+               "bin_selection": "single" if single_bin else "r2_sweep",
+               "regression": regression}
 
     fits: list[dict] = []
     best = {"r2": -np.inf}
@@ -346,11 +433,9 @@ def criticality(rec: SpikeRecording,
         log_t_bins = np.log(lifetimes / bs)
         if np.var(log_s) == 0 or np.var(log_t_bins) == 0:
             continue
-        try:
-            slope, intercept, r_val, _, _ = linregress(log_s, log_t_bins)
-        except ValueError:
+        slope, r2 = _fit_slope(log_s, log_t_bins, regression=regression)
+        if not np.isfinite(slope):
             continue
-        r2 = float(r_val ** 2)
         gamma_fit = 1.0 / slope if slope != 0 else float("nan")
         fits.append({
             "bin_seconds": bs, "alpha_s": float(alpha_s),
@@ -402,6 +487,8 @@ def criticality(rec: SpikeRecording,
 def bin_size_sweep(rec: SpikeRecording,
                    populations: Sequence[str] | None = None,
                    bin_size_ms: Sequence[float] = (2, 4, 8, 16, 32),
+                   *,
+                   regression: str = "ols",
                    ) -> "CriticalityResult":
     """Sweep bin sizes and return the best-fit :class:`CriticalityResult`.
 
@@ -422,4 +509,5 @@ def bin_size_sweep(rec: SpikeRecording,
     import warnings as _w
     with _w.catch_warnings():
         _w.simplefilter("ignore", UserWarning)
-        return criticality(rec, populations=populations, bin_size=bin_size_ms)
+        return criticality(rec, populations=populations, bin_size=bin_size_ms,
+                           regression=regression)
