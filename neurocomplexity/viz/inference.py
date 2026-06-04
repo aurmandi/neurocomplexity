@@ -48,7 +48,9 @@ import numpy as np
 from neurocomplexity.inference.results import InferenceResult
 from neurocomplexity.viz._palettes import DEFAULT_PALETTE
 from neurocomplexity.viz._style import (
-    _apply_panel_label, _resolve_palette_and_axes, stats_box,
+    _apply_panel_label,
+    _resolve_palette_and_axes,
+    stats_box,
 )
 
 

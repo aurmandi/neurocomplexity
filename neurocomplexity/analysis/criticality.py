@@ -489,7 +489,7 @@ def bin_size_sweep(rec: SpikeRecording,
                    bin_size_ms: Sequence[float] = (2, 4, 8, 16, 32),
                    *,
                    regression: str = "ols",
-                   ) -> "CriticalityResult":
+                   ) -> CriticalityResult:
     """Sweep bin sizes and return the best-fit :class:`CriticalityResult`.
 
     Equivalent to ``criticality(rec, populations=populations,

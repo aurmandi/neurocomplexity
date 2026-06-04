@@ -61,11 +61,11 @@ def concordance_branching_vs_mrestimator():
             "pass": False,
         }
 
+    from neurocomplexity.analysis._binning import bin_spikes
+    from neurocomplexity.analysis.branching import wilting_mr
     from neurocomplexity.benchmarks.simulators.branching_network import (
         branching_network,
     )
-    from neurocomplexity.analysis.branching import wilting_mr
-    from neurocomplexity.analysis._binning import bin_spikes
 
     m_true = 0.95
     rec = branching_network(
@@ -118,6 +118,7 @@ def _build_pid_recording_from_arrays(s1, s2, tgt, bin_ms=10.0):
     estimator while keeping the public interface honest.
     """
     import pandas as pd
+
     from neurocomplexity.core.recording import SpikeRecording
 
     bin_s = bin_ms / 1000.0
@@ -170,7 +171,7 @@ def concordance_pid_vs_dit():
     """
     # Build the XOR sample directly and exercise the internal I_min helper
     # (bypassing the SpikeRecording wrapper which would re-discretise).
-    from neurocomplexity.analysis.pid import _redundancy_imin, _mi_mm
+    from neurocomplexity.analysis.pid import _mi_mm, _redundancy_imin
     rng = np.random.default_rng(0)
     n = 20000
     s1 = rng.integers(0, 2, n)
@@ -205,9 +206,10 @@ def concordance_pid_vs_dit():
     diff_red_dit = float("nan")
     diff_syn_dit = float("nan")
     try:
+        from collections import Counter
+
         import dit
         from dit.pid import PID_WB
-        from collections import Counter
         joint_counter = Counter(zip(s1.tolist(), s2.tolist(), tgt.tolist()))
         total = sum(joint_counter.values())
         outcomes = [f"{a}{b}{c}" for (a, b, c) in joint_counter]
