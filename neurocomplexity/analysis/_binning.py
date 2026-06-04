@@ -12,6 +12,23 @@ from neurocomplexity.core.recording import SpikeRecording
 
 _COUNTS_DTYPE = np.int32
 _COUNTS_BYTES = 4
+# Promote to int64 when the (T, P) count matrix is large enough that a
+# single column's cumulative count could overflow int32 (max ~2.1e9). The
+# heuristic threshold T * P > 2**30 is conservative: in practice a single
+# bin rarely accumulates anywhere near 2^31 spikes, but at very long
+# recordings (>~10 h Neuropixels @ 1 ms with thousands of units) the cost
+# of doubling memory is preferable to a silent overflow.
+_PROMOTE_THRESHOLD = 1 << 30
+
+
+def _counts_dtype(T: int, P: int) -> np.dtype:
+    """Return ``np.int64`` when ``T * P`` exceeds the promotion threshold."""
+    return np.int64 if (int(T) * int(P)) > _PROMOTE_THRESHOLD else _COUNTS_DTYPE
+
+
+def _counts_bytes(T: int, P: int) -> int:
+    """Per-element size of the dtype ``bin_spikes`` would allocate at (T, P)."""
+    return 8 if (int(T) * int(P)) > _PROMOTE_THRESHOLD else _COUNTS_BYTES
 
 
 def estimate_bin_spikes_bytes(rec: SpikeRecording,
@@ -29,7 +46,7 @@ def estimate_bin_spikes_bytes(rec: SpikeRecording,
         P = int(populations)
     else:
         P = len(populations)
-    return int(T * P * _COUNTS_BYTES)
+    return int(T * P * _counts_bytes(T, P))
 
 
 def _maybe_warn_large_allocation(T: int, P: int) -> None:
@@ -37,7 +54,7 @@ def _maybe_warn_large_allocation(T: int, P: int) -> None:
 
     Silent if psutil is not installed.
     """
-    need = T * P * _COUNTS_BYTES
+    need = T * P * _counts_bytes(T, P)
     try:
         import psutil
         avail = int(psutil.virtual_memory().available)
@@ -87,7 +104,7 @@ def bin_spikes(rec: SpikeRecording, populations: Sequence[str],
     if chunk_seconds is None:
         _maybe_warn_large_allocation(T, P)
 
-    out = np.zeros((T, P), dtype=_COUNTS_DTYPE)
+    out = np.zeros((T, P), dtype=_counts_dtype(T, P))
 
     pop_ids: list[np.ndarray] = []
     for name in populations:
