@@ -10,6 +10,7 @@ References:
 """
 from __future__ import annotations
 
+import warnings as _warnings
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 
@@ -208,6 +209,14 @@ def multiscale_entropy(rec,
     sampen = np.full((P, S), np.nan, dtype=np.float64)
     r_per_pop = np.zeros(P, dtype=np.float64)
 
+    # Sample-entropy reliability rule of thumb (Richman & Moorman 2000;
+    # Pincus 1991): each coarse-grained series needs at least 10**(m+1)
+    # template windows for the SampEn match counts to stabilise. We emit
+    # at most one warning per mse() call to avoid spamming when many scales
+    # or many populations fall below the threshold.
+    _min_K = 10 ** (m + 1)
+    _short_warned = False
+
     total = P * S
     it = iter(progress_iter(range(total), total=total, desc="mse"))
     for p in range(P):
@@ -220,6 +229,19 @@ def multiscale_entropy(rec,
             continue
         for si, tau in enumerate(scales):
             cg = _coarse_grain(series, int(tau))
+            K_eff = max(0, cg.size - m)
+            if not _short_warned and K_eff < _min_K:
+                _warnings.warn(
+                    f"multiscale_entropy: coarse-grained series at "
+                    f"scale={int(tau)} has K_eff={K_eff} template windows "
+                    f"(< 10**(m+1) = {_min_K} required for reliable "
+                    f"sample entropy at m={m}). Sample-entropy values at "
+                    f"this and larger scales may be noisy or NaN; consider "
+                    f"a longer recording, a smaller scale_max, or m=1.",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
+                _short_warned = True
             sampen[p, si] = _sample_entropy(cg, m=m, r=r)
             next(it, None)
 
