@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import warnings as _pywarnings
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 
 import numpy as np
 
@@ -151,5 +151,70 @@ def bin_spikes(rec: SpikeRecording, populations: Sequence[str],
 
 def bin_all_active(rec: SpikeRecording, populations: Sequence[str],
                    bin_size_seconds: float) -> np.ndarray:
-    """Like bin_spikes, but summed across given populations → (T,) total counts."""
+    """Like bin_spikes, but summed across given populations → (T,) total counts.
+
+    .. warning::
+        This sums all spike counts regardless of cell type. For
+        E/I-balanced dynamics where excitatory and inhibitory cascades
+        carry different dynamical signatures, use
+        :func:`bin_active_by_type` and analyse each stream separately.
+        Avalanches extracted from a pooled E + I count series can confuse
+        a sub-critical balanced state with a critical excitatory cascade
+        (Beggs & Plenz 2003; Plenz 2014).
+    """
     return bin_spikes(rec, populations, bin_size_seconds).sum(axis=1)
+
+
+def bin_active_by_type(
+    rec: SpikeRecording,
+    populations: Sequence[str],
+    bin_size_seconds: float,
+    cell_types: Mapping[str, str],
+    *,
+    missing_label: str = "unlabelled",
+) -> dict[str, np.ndarray]:
+    """Bin spikes once and return per-cell-type total-count streams.
+
+    Parameters
+    ----------
+    rec
+        Spike recording.
+    populations
+        Population keys to bin (each becomes one column of the underlying
+        (T, P) count matrix).
+    bin_size_seconds
+        Bin width in seconds.
+    cell_types
+        Mapping ``population -> label`` (e.g. ``"E"`` / ``"I"`` /
+        ``"PV"`` / ``"SST"``). Populations not present in this mapping
+        are placed under ``missing_label`` so the caller cannot silently
+        drop streams.
+    missing_label
+        Bucket for populations absent from ``cell_types``. Default
+        ``"unlabelled"``.
+
+    Returns
+    -------
+    streams : dict[str, np.ndarray]
+        One ``(T,)`` count vector per distinct label that appears among
+        the requested populations. Iteration order is insertion order of
+        the first population assigned to each label.
+
+    Notes
+    -----
+    Use this when the downstream analysis depends on cell-type identity —
+    most criticality / avalanche studies, balanced-network diagnostics,
+    and E/I-aware Transfer Entropy. For the legacy pooled "total
+    activity" series use :func:`bin_all_active`.
+    """
+    counts = bin_spikes(rec, populations, bin_size_seconds)  # (T, P)
+    streams: dict[str, np.ndarray] = {}
+    pop_list = list(populations)
+    for p_idx, name in enumerate(pop_list):
+        label = str(cell_types.get(name, missing_label))
+        col = counts[:, p_idx]
+        if label in streams:
+            streams[label] = streams[label] + col
+        else:
+            streams[label] = col.copy()
+    return streams
