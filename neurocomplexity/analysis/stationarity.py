@@ -19,6 +19,7 @@ References:
 from __future__ import annotations
 
 import warnings as _pywarnings
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -85,33 +86,32 @@ class StationarityResult:
     flags: tuple[str, ...] = ()
 
 
-def _population_rate_per_window(rec: SpikeRecording, window_s: float
+def _population_rate_per_window(spike_times: np.ndarray, duration: float,
+                                n_units: int, window_s: float,
                                 ) -> tuple[np.ndarray, np.ndarray]:
     """Return (rate_per_window_Hz, window_centre_seconds)."""
-    duration = float(rec.duration)
     n = max(int(np.floor(duration / window_s)), 2)
     if n * window_s > duration:
-        # When duration < 2*window_s we still want two windows for any slope test.
         edges = np.linspace(0.0, duration, n + 1)
     else:
         edges = np.arange(0, (n + 1)) * window_s
         edges[-1] = min(edges[-1], duration)
-    counts, _ = np.histogram(rec.spike_times, bins=edges)
+    counts, _ = np.histogram(spike_times, bins=edges)
     widths = np.diff(edges)
-    n_units = max(len(rec.units), 1)
+    n_units = max(n_units, 1)
     rate = counts / widths / n_units
     centres = 0.5 * (edges[:-1] + edges[1:])
     return rate.astype(float), centres.astype(float)
 
 
-def _cv2_for_recording(rec: SpikeRecording) -> float:
-    uids = np.asarray(rec.unit_ids, dtype=np.int64)
+def _cv2_for_spikes(spike_times: np.ndarray, unit_ids: np.ndarray) -> float:
+    uids = np.asarray(unit_ids, dtype=np.int64)
     if uids.size == 0:
         return float("nan")
     unique = np.unique(uids)
     vals = []
     for u in unique:
-        st = rec.spike_times[uids == u]
+        st = spike_times[uids == u]
         if st.size < 3:
             continue
         isi = np.diff(np.sort(st))
@@ -127,6 +127,7 @@ def _cv2_for_recording(rec: SpikeRecording) -> float:
 
 
 def stationarity(rec: SpikeRecording, *,
+                 populations: Sequence[str] | None = None,
                  window_s: float = 30.0,
                  cv_threshold: float = 0.30,
                  slope_pvalue_threshold: float = 0.01,
@@ -135,10 +136,40 @@ def stationarity(rec: SpikeRecording, *,
                  ) -> StationarityResult:
     """Compute stationarity diagnostics for ``rec``.
 
+    Parameters
+    ----------
+    rec
+        Recording to diagnose.
+    populations
+        Names of populations to include. ``None`` (default) uses all units,
+        preserving v1.x behaviour. Pass e.g. ``["E"]`` to diagnose a single
+        cell-type sub-population.
+    window_s, cv_threshold, slope_pvalue_threshold, var_ratio_threshold, cv2_threshold
+        Diagnostic windows and acceptance thresholds (see :class:`StationarityResult`).
+
     All thresholds are advisory; ``is_stationary`` is True iff none are breached.
     Defaults are deliberately permissive (CV>0.30, slope p<0.01, var-ratio>3,
     CV2>1.5) to avoid spamming warnings on normal experimental recordings.
     """
+    # --- population filtering -------------------------------------------
+    if populations is None:
+        spike_times = np.asarray(rec.spike_times, dtype=np.float64)
+        unit_ids = np.asarray(rec.unit_ids, dtype=np.int64)
+        n_units = len(rec.units)
+    else:
+        from neurocomplexity.core.exceptions import PopulationError
+        pop_mask = np.zeros(len(rec.units), dtype=bool)
+        for name in populations:
+            if name not in rec.populations:
+                raise PopulationError(f"unknown population {name!r}")
+            pop_mask |= rec.populations[name]
+        pop_unit_ids = rec.units.loc[pop_mask, "id"].to_numpy(dtype=np.int64)
+        spike_mask = np.isin(rec.unit_ids, pop_unit_ids)
+        spike_times = np.asarray(rec.spike_times, dtype=np.float64)[spike_mask]
+        unit_ids = np.asarray(rec.unit_ids, dtype=np.int64)[spike_mask]
+        n_units = int(pop_mask.sum())
+    # --------------------------------------------------------------------
+
     if rec.duration < 2.0 * window_s:
         _pywarnings.warn(
             f"recording duration {rec.duration:.1f}s < 2*window_s "
@@ -146,7 +177,8 @@ def stationarity(rec: SpikeRecording, *,
             UserWarning, stacklevel=2,
         )
 
-    rate, centres = _population_rate_per_window(rec, window_s)
+    rate, centres = _population_rate_per_window(spike_times, rec.duration,
+                                                n_units, window_s)
     n_windows = int(rate.size)
 
     mean_r = float(np.mean(rate)) if rate.size else 0.0
@@ -166,12 +198,12 @@ def stationarity(rec: SpikeRecording, *,
         # variance within each window using sub-bin counts (10 sub-bins per window)
         sub_n = 10
         edges_main = np.linspace(0.0, rec.duration, n_windows + 1)
-        n_units = max(len(rec.units), 1)
+        _n_units = max(n_units, 1)
         for i in range(n_windows):
             sub_edges = np.linspace(edges_main[i], edges_main[i + 1], sub_n + 1)
-            sub_counts, _ = np.histogram(rec.spike_times, bins=sub_edges)
+            sub_counts, _ = np.histogram(spike_times, bins=sub_edges)
             sub_widths = np.diff(sub_edges)
-            sub_rate = sub_counts / sub_widths / n_units
+            sub_rate = sub_counts / sub_widths / _n_units
             var_per_window[i] = float(np.var(sub_rate, ddof=1)) if sub_rate.size > 1 else 0.0
     positive = var_per_window[var_per_window > 0]
     if positive.size >= 2:
@@ -179,7 +211,7 @@ def stationarity(rec: SpikeRecording, *,
     else:
         var_ratio = 1.0
 
-    cv2 = _cv2_for_recording(rec)
+    cv2 = _cv2_for_spikes(spike_times, unit_ids)
 
     flags: list[str] = []
     if cv > cv_threshold:
@@ -201,6 +233,7 @@ def stationarity(rec: SpikeRecording, *,
         n_windows=n_windows,
         window_s=float(window_s),
         params={
+            "populations": list(populations) if populations is not None else None,
             "window_s": float(window_s),
             "cv_threshold": float(cv_threshold),
             "slope_pvalue_threshold": float(slope_pvalue_threshold),
