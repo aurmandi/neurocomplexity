@@ -75,6 +75,69 @@ class TransferEntropyResult:
     params: dict = field(default_factory=dict)
 
 
+def _schreiber_te_general(source_d: np.ndarray, target_d: np.ndarray,
+                           K: int, delay: int = 1,
+                           bias: str = "miller_madow") -> float:
+    """Plug-in TE for arbitrary-alphabet discrete sequences.
+
+    Both inputs must be integer arrays in ``[0, K)`` of equal length. The
+    estimator matches the binary-state form (Schreiber 2000, k=l=1) but
+    generalises to ``K`` symbols by computing the 3-way joint
+    ``p(y_t, y_{t-delay}, x_{t-delay})`` via ``np.bincount`` on a flat
+    index. Miller-Madow ``(m-1)/(2N)`` correction is applied with the
+    two-stage clamp (raw plug-in ≥ 0, then correction, then final clamp).
+    """
+    y = np.asarray(target_d, dtype=np.int64)
+    x = np.asarray(source_d, dtype=np.int64)
+    if K < 2:
+        raise ValueError("alphabet K must be >= 2")
+    if y.size != x.size:
+        raise ValueError("source and target must be the same length")
+    T = y.size
+    if T <= delay + 1:
+        return 0.0
+    y_future = y[delay:]
+    y_past = y[:-delay]
+    x_past = x[:-delay]
+    N = int(y_future.size)
+
+    K2 = K * K
+    flat = K2 * y_future + K * y_past + x_past
+    counts = np.bincount(flat, minlength=K2 * K).astype(np.float64)
+    p = counts / N
+
+    # Marginalise: p(yf, yp, xp) is stored at index K2*yf + K*yp + xp.
+    p3 = p.reshape(K, K, K)            # (yf, yp, xp)
+    p_yp_xp = p3.sum(axis=0)           # marginal over yf
+    p_yf_yp = p3.sum(axis=2)           # marginal over xp
+    p_yp = p3.sum(axis=(0, 2))         # marginal yp
+
+    # Vectorised plug-in TE
+    # te = sum p(yf,yp,xp) * log[ p(yf,yp,xp) * p(yp) / ( p(yp,xp) * p(yf,yp) ) ]
+    num = p3 * p_yp[None, :, None]
+    den = p_yp_xp[None, :, :] * p_yf_yp[:, :, None]
+    with np.errstate(divide="ignore", invalid="ignore"):
+        ratio = np.where((p3 > 0) & (den > 0), num / den, 1.0)
+        log_ratio = np.where((p3 > 0) & (den > 0), np.log(ratio), 0.0)
+    te = float(np.sum(p3 * log_ratio))
+
+    if bias == "none":
+        correction = 0.0
+    elif bias == "roulston":
+        m_x = int(np.unique(x_past).size)
+        m_y = int(np.unique(y_past).size)
+        correction = (m_x - 1) * (m_y - 1) / (2.0 * N)
+    elif bias == "miller_madow":
+        m = int(np.sum(counts > 0))
+        correction = (m - 1) / (2.0 * N)
+    else:
+        raise ValueError(
+            f"unknown bias={bias!r}; choose 'miller_madow', 'roulston', or 'none'"
+        )
+    te_raw = max(0.0, te)
+    return max(0.0, te_raw - correction)
+
+
 def _binary_schreiber_te(source_ts: np.ndarray, target_ts: np.ndarray,
                           delay: int = 1, bias: str = "miller_madow") -> float:
     """TE(source -> target) in nats.
@@ -159,6 +222,9 @@ def transfer_entropy(rec: SpikeRecording,
                      signals: Sequence[str] | None = None,
                      bias: str = "miller_madow",
                      n_jobs: int = 1,
+                     *,
+                     discretize: str = "binary",
+                     n_quantile_bins: int = 3,
                      ) -> TransferEntropyResult:
     """Pairwise TE matrix across the given populations and (optionally) signals.
 
@@ -173,6 +239,22 @@ def transfer_entropy(rec: SpikeRecording,
         ``"miller_madow"`` (default, ``(m-1)/(2N)`` over occupied joint
         cells), ``"roulston"`` (``(m_X-1)(m_Y-1)/(2N)`` product form,
         Roulston 2002), or ``"none"``. See :func:`_binary_schreiber_te`.
+    discretize
+        How spike counts are mapped to symbols before the plug-in:
+
+        * ``"binary"`` (default) — Schreiber's ``> 0`` threshold; the
+          paper-tested estimator. Saturates on pooled populations (see
+          module docstring).
+        * ``"quantile"`` — quantile-equal discretisation into
+          ``n_quantile_bins`` levels via :func:`pid._quantile_discretise`.
+          Preserves rate-coded information; appropriate when populations
+          are pooled or fire near the upper saturation limit.
+        * ``"none"`` — caller is responsible for discretisation. ``counts``
+          must already be integer in ``[0, n_quantile_bins)``; the value
+          of ``n_quantile_bins`` is taken as the alphabet size ``K``.
+    n_quantile_bins
+        Alphabet size for ``discretize`` modes other than ``"binary"``.
+        Default 3 matches the PID default.
     n_jobs
         Number of worker processes for the pairwise loop. ``1`` (default)
         runs serially with the usual progress bar; ``>1`` (or ``-1`` for all
@@ -203,6 +285,12 @@ def transfer_entropy(rec: SpikeRecording,
     _warn_if_nonstationary(rec, "transfer_entropy")
     if estimator != "binary":
         raise ValueError(f"only estimator='binary' is implemented in v0.1; got {estimator!r}")
+    if discretize not in {"binary", "quantile", "none"}:
+        raise ValueError(
+            f"unknown discretize={discretize!r}; choose 'binary', 'quantile', or 'none'"
+        )
+    if discretize != "binary" and int(n_quantile_bins) < 2:
+        raise ValueError("n_quantile_bins must be >= 2")
     if populations is None:
         populations = list(rec.populations.keys())
     populations = list(populations)
@@ -233,11 +321,9 @@ def transfer_entropy(rec: SpikeRecording,
     names = populations + signals
     P = counts.shape[1]
 
-    # Saturation diagnostic: binary-symbol TE collapses when any input
-    # stream's binarized marginal is near 0 or 1. This is the classic failure
-    # mode of pooling hundreds of units into one population. Warn so the user
-    # can switch to per-unit granularity (see module docstring).
-    if P:
+    # Saturation diagnostic: only meaningful for the binary path, since
+    # quantile-discretised streams are by construction multi-level.
+    if P and discretize == "binary":
         bin_marg = (counts > 0).mean(axis=0)
         bad = [
             (names[i], float(bin_marg[i]))
@@ -251,10 +337,52 @@ def transfer_entropy(rec: SpikeRecording,
                 + ", ".join(f"{n!r}={v:.3f}" for n, v in bad)
                 + " (outside [0.05, 0.95]); binary-symbol TE will be near "
                 "zero and the surrogate test will be underpowered. Use "
-                "per-unit populations (one mask per unit) or a finer bin "
-                "size — see transfer_entropy module docstring.",
+                "per-unit populations (one mask per unit), a finer bin "
+                "size, or discretize='quantile' — see module docstring.",
                 stacklevel=2,
             )
+
+    # Build the discretised symbol matrix (T, P). For the binary path the
+    # binary threshold lives inside `_binary_schreiber_te`; for the other
+    # paths we pre-discretise here so the worker just sees integer streams.
+    if discretize == "binary":
+        symbols = None  # the legacy path takes raw counts
+        K = 2
+    elif discretize == "quantile":
+        from neurocomplexity.analysis.pid import _quantile_discretise
+        if P:
+            symbols = np.stack(
+                [_quantile_discretise(counts[:, p].astype(np.float64),
+                                       int(n_quantile_bins))
+                 for p in range(P)],
+                axis=1,
+            ).astype(np.int64)
+        else:
+            symbols = np.zeros((T, 0), dtype=np.int64)
+        K = int(n_quantile_bins)
+    else:  # "none"
+        if not np.issubdtype(counts.dtype, np.integer):
+            raise ValueError(
+                "discretize='none' requires integer-typed counts in [0, n_quantile_bins)"
+            )
+        if P and (counts.min() < 0 or counts.max() >= int(n_quantile_bins)):
+            raise ValueError(
+                f"discretize='none' requires counts in [0, {int(n_quantile_bins)}); "
+                f"observed range [{int(counts.min())}, {int(counts.max())}]"
+            )
+        symbols = counts.astype(np.int64)
+        K = int(n_quantile_bins)
+
+    def _te_pair(s_idx: int, t_idx: int) -> float:
+        if discretize == "binary":
+            return _binary_schreiber_te(
+                counts[:, s_idx], counts[:, t_idx],
+                delay=delay_bins, bias=bias,
+            )
+        return _schreiber_te_general(
+            symbols[:, s_idx], symbols[:, t_idx], K=K,
+            delay=delay_bins, bias=bias,
+        )
 
     mat = np.zeros((P, P), dtype=np.float64)
     pairs = [(s, t) for s in range(P) for t in range(P) if s != t]
@@ -262,14 +390,11 @@ def transfer_entropy(rec: SpikeRecording,
     if n_jobs == 1:
         from neurocomplexity._progress import progress_iter
         for s, t in progress_iter(pairs, total=len(pairs), desc="TE matrix"):
-            mat[s, t] = _binary_schreiber_te(
-                counts[:, s], counts[:, t], delay=delay_bins, bias=bias)
+            mat[s, t] = _te_pair(s, t)
     else:
         from joblib import Parallel, delayed
         vals = Parallel(n_jobs=n_jobs)(
-            delayed(_binary_schreiber_te)(
-                counts[:, s], counts[:, t], delay=delay_bins, bias=bias)
-            for s, t in pairs
+            delayed(_te_pair)(s, t) for s, t in pairs
         )
         for (s, t), v in zip(pairs, vals):
             mat[s, t] = v
@@ -286,5 +411,7 @@ def transfer_entropy(rec: SpikeRecording,
                 "delay_bins": int(delay_bins),
                 "estimator": estimator,
                 "bias": bias,
-                "n_jobs": int(n_jobs)},
+                "n_jobs": int(n_jobs),
+                "discretize": discretize,
+                "n_quantile_bins": int(n_quantile_bins)},
     )
