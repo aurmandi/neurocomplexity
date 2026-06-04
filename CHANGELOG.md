@@ -3,6 +3,64 @@
 ## Unreleased
 
 ### Added
+- **Reviewer audit (June 2026) follow-ups** — ten new options / warnings
+  prompted by an external multi-layer audit. Every default reproduces the
+  v1.1.0 / paper Table 3 numbers bit-for-bit; the new behaviour is opt-in.
+  - `nc.analysis.criticality(..., regression={"ols","rma","odr"})` — A1.
+    Reduced Major Axis and Orthogonal Distance Regression alternatives to
+    OLS for the `<S>(T)` slope that produces `gamma_fit`. ODR uses
+    `scipy.odr` with a documented OLS fall-back. Recorded in
+    `CriticalityResult.params['regression']`.
+  - `nc.analysis.transfer_entropy(..., discretize={"binary","quantile","none"},
+    n_quantile_bins=3)` — A5. Quantile and pre-discretised paths via a new
+    `_schreiber_te_general` plug-in over arbitrary alphabet `K`. Matches
+    the binary estimator bit-for-bit at `K=2`.
+  - `nc.analysis.partial_information(..., redundancy={"imin","iccs"})` — A8.
+    Ince (2017) pointwise common-change-in-surprisal redundancy alongside
+    Williams & Beer `I_min`. Recorded in `PIDResult.params['redundancy']`.
+  - `nc.analysis.multiscale_entropy(..., backend={"numpy","kdtree","auto"})`
+    and `_sample_entropy(..., backend=...)` — A4. Optional
+    `scipy.spatial.cKDTree.query_pairs` backend for sample entropy at
+    `K > 2000`. Numerical agreement with the NumPy loop verified to
+    `rtol=1e-9`.
+  - `nc.analysis.bin_active_by_type(rec, populations, bin_size_seconds,
+    cell_types, *, missing_label="unlabelled")` — A6. E/I-aware
+    counterpart to `bin_all_active`; returns one count vector per cell-type
+    label so downstream analyses can keep streams separated.
+- New regression tests for every item above plus the items below.
+
+### Fixed
+- **A9 — Transfer-entropy bias correction reorder.** The Schreiber TE
+  plug-in could drift slightly negative on finite samples; the previous
+  order `te -= correction; return max(0, te)` under-corrected at the zero
+  floor. New order clamps the raw plug-in to zero before subtracting the
+  Miller-Madow correction and clamps again at the end. High-signal cases
+  are unchanged; only the null Type-I regime can shift, and the
+  five-seed benchmark sweep stays well within tolerance.
+- **A11 — `_binning` int32 overflow guard.** The (T, P) count matrix is
+  now promoted to `int64` when `T * P > 2**30` (e.g. > 10 h recordings at
+  1 ms with thousands of populations). `estimate_bin_spikes_bytes` and
+  the large-allocation warning track the promoted dtype.
+
+### Deprecated
+- **A7 — Naive branching in `CriticalityResult`.** The
+  `<A_{t+1}/A_t>` field is biased by sub-sampling and external drive
+  (Wilting & Priesemann 2018) and now emits a `DeprecationWarning`
+  pointing at `nc.analysis.wilting_mr`. The field is retained for
+  backwards-compatible diagnostics only.
+
+### Changed (internal)
+- **A12** — Renamed the internal `log_t` variable inside
+  `fit_avalanche_exponents` / `criticality` to `log_t_bins` and added a
+  units comment. Behaviour unchanged.
+- **A13** — `multiscale_entropy` emits a single `RuntimeWarning` per call
+  when any coarse-grained scale has fewer than `10**(m+1)` template
+  windows (Richman & Moorman 2000 / Pincus 1991 reliability rule).
+- **IO4** — `nc.io.from_spikeinterface` emits a `UserWarning` when the
+  materialised spike array would exceed ~1e8 spikes (~800 MB float64),
+  pointing the caller at `sorting.frame_slice(...)`.
+
+### Added (legacy entries below were already pending in Unreleased)
 - `nc.analysis.extract_avalanches` and `nc.analysis.fit_avalanche_exponents`
   are now re-exported from the `analysis` namespace. They were already part
   of the documented stable surface but were only reachable through the
