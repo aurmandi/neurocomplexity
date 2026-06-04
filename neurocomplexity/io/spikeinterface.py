@@ -7,6 +7,7 @@ a soft dependency — install with
 """
 from __future__ import annotations
 
+import warnings as _warnings
 from collections.abc import Mapping
 
 import numpy as np
@@ -14,6 +15,36 @@ import pandas as pd
 
 from neurocomplexity.core.provenance import ProvenanceRecord
 from neurocomplexity.core.recording import SpikeRecording
+
+# Materialising more spikes than this from a lazy SpikeInterface backend
+# triggers a UserWarning — at ~1e8 float64 timestamps the materialised
+# array is ~800 MB which is large enough to defeat the point of using a
+# memory-mapped Sorting object.
+_SI_MATERIALISE_WARN_THRESHOLD = 100_000_000
+
+
+def _maybe_warn_si_materialise(n_total: int,
+                               threshold: int = _SI_MATERIALISE_WARN_THRESHOLD,
+                               stacklevel: int = 3) -> None:
+    """Emit a UserWarning when ``n_total > threshold`` spikes would be materialised.
+
+    Factored out of :func:`from_spikeinterface` so the threshold logic
+    is exercised by unit tests without requiring the soft
+    ``spikeinterface`` dependency.
+    """
+    if n_total > threshold:
+        _warnings.warn(
+            f"from_spikeinterface: materialising {n_total:,d} spikes "
+            f"from the SpikeInterface backend will hold the full spike "
+            f"array (~{n_total * 8 / 1e9:.1f} GB at float64) in RAM "
+            f"and defeats the lazy / memmap design of the source "
+            f"Sorting object. Consider cropping the recording with "
+            f"`sorting.frame_slice(...)` or `recording.frame_slice(...)` "
+            f"before calling from_spikeinterface, or load directly from "
+            f"the raw sorter output via nc.io.load(...) / from_kilosort.",
+            UserWarning,
+            stacklevel=stacklevel,
+        )
 
 
 def from_spikeinterface(
@@ -57,6 +88,8 @@ def from_spikeinterface(
         owner_chunks.append(np.full(st.shape, int(uid), dtype=np.int64))
 
     if spike_chunks:
+        n_total = sum(int(s.size) for s in spike_chunks)
+        _maybe_warn_si_materialise(n_total)
         spike_times = np.concatenate(spike_chunks)
         owners = np.concatenate(owner_chunks)
         order = np.argsort(spike_times, kind="stable")
