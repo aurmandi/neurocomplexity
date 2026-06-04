@@ -18,6 +18,7 @@ the Sethna consistency test can still be performed.
 """
 from __future__ import annotations
 
+import warnings as _warnings
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 
@@ -43,7 +44,13 @@ class CriticalityResult:
     optimal_bin
         Bin size (milliseconds) selected by maximising R² of the size-vs-lifetime scaling.
     branching
-        ``≈ <S²> / <S>² − 1``. Not the same as :func:`~neurocomplexity.analysis.wilting_mr`.
+        Naive ``<A_{t+1} / A_t>`` ratio across non-empty bins. **Deprecated
+        for inference** — the naive ratio is biased downward by sub-sampling
+        and biased upward by external drive (Wilting & Priesemann 2018).
+        Use :func:`~neurocomplexity.analysis.wilting_mr` for any quantitative
+        claim about the branching ratio; this field is retained for
+        backwards-compatible diagnostic comparison and emits a
+        :class:`DeprecationWarning` when populated.
     sizes
         Per-avalanche spike counts (at ``optimal_bin``).
     lifetimes
@@ -224,6 +231,13 @@ def fit_avalanche_exponents(sizes: np.ndarray, lifetimes: np.ndarray,
 
 
 def _branching(counts_1d: np.ndarray) -> float:
+    """Naive <A_{t+1}/A_t> ratio. **Deprecated** — use ``wilting_mr``.
+
+    Emits a :class:`DeprecationWarning` because this estimator is biased by
+    sub-sampling and external drive (Wilting & Priesemann 2018) and should
+    not be used for inference. Retained so existing ``CriticalityResult``
+    consumers keep working unchanged.
+    """
     if counts_1d.size < 2:
         return float("nan")
     a = counts_1d[:-1].astype(np.float64)
@@ -231,6 +245,14 @@ def _branching(counts_1d: np.ndarray) -> float:
     nz = a > 0
     if not nz.any():
         return float("nan")
+    _warnings.warn(
+        "criticality().branching is the naive <A_{t+1}/A_t> ratio, which "
+        "is biased by sub-sampling and external drive. Use "
+        "nc.analysis.wilting_mr for quantitative branching-ratio inference. "
+        "This field is retained for backwards-compatible diagnostics only.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     return float(np.mean(b[nz] / a[nz]))
 
 

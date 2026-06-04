@@ -222,6 +222,28 @@ def test_sequence_bin_warns_and_records_full_table():
     assert any(np.isclose(r.optimal_bin / 1000.0, b) for b in bins_seen)
 
 
+def test_branching_field_emits_deprecation_warning():
+    """``criticality().branching`` is the deprecated naive ratio.
+
+    Computing it must emit a :class:`DeprecationWarning` directing the user
+    to :func:`wilting_mr`. The field is retained for backwards-compatible
+    diagnostics but is no longer recommended for inference.
+    """
+    rec = _critical_branching_rec()
+    with _warnings.catch_warnings(record=True) as caught:
+        _warnings.simplefilter("always")
+        criticality(rec, populations=["all"], bin_size=4.0)
+    dep = [
+        w for w in caught
+        if issubclass(w.category, DeprecationWarning)
+        and "wilting_mr" in str(w.message)
+    ]
+    assert dep, (
+        "expected a DeprecationWarning mentioning wilting_mr from the naive "
+        f"branching estimator, got: {[str(w.message) for w in caught]}"
+    )
+
+
 def test_bin_size_sweep_standalone():
     """`bin_size_sweep` delegates to criticality() and returns a
     CriticalityResult whose `.fits` field holds the per-bin sweep table."""
