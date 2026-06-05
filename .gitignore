@@ -37,15 +37,13 @@ sim_output/
 outputs/
 *.log
 
-# Local datasets (raw data + analysis artifacts), kept local-only
+
 datasets/
 
-# Local analysis scripts and figure outputs
 examples/figures/
 examples/_*.py
 scripts/
 
-# Manuscript draft kept local-only until submission
 paper/
 docs/paper/
 
@@ -55,3 +53,4 @@ docs/superpowers/
 
 docs/_build/
 docs/.jupyter_cache
+.rtk/
