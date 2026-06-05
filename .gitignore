@@ -54,3 +54,4 @@ docs/superpowers/
 docs/_build/
 docs/.jupyter_cache
 .rtk/
+.rtk\filters.toml
