@@ -39,7 +39,7 @@ outputs/
 
 
 datasets/
-
+examples/
 examples/figures/
 examples/_*.py
 scripts/

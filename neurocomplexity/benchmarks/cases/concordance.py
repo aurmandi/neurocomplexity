@@ -217,14 +217,13 @@ def concordance_pid_vs_dit():
         d = dit.Distribution(outcomes, probs)
         d.set_rv_names("XYZ")
         pid_dit = PID_WB(d, [("X",), ("Y",)], "Z")
-        # dit reports atoms in bits — convert to nats for comparison
-        # The atoms dict keys are antichains; redundancy = ((X,), (Y,))
-        atoms = {tuple(sorted(k, key=str)): float(v) * np.log(2.0)
-                 for k, v in pid_dit.atoms.items()}
-        # redundancy is the bottom of the lattice: both sources alone
-        dit_red = atoms.get((("X",), ("Y",)), float("nan"))
-        # synergy is the top: ((X, Y),)
-        dit_syn = atoms.get((("X", "Y"),), float("nan"))
+        # dit >= 1.5 removed the ``.atoms`` dict: access each partial-information
+        # atom by indexing the PID with its rv-name antichain. Values are in
+        # bits, converted to nats for comparison.
+        # redundancy is the bottom of the lattice: both sources alone {X}{Y}
+        dit_red = float(pid_dit[(("X",), ("Y",))]) * np.log(2.0)
+        # synergy is the top: {X:Y}
+        dit_syn = float(pid_dit[(("X", "Y"),)]) * np.log(2.0)
         diff_red_dit = abs(nc_red - dit_red)
         diff_syn_dit = abs(nc_synergy - dit_syn)
         dit_status = "ok"
