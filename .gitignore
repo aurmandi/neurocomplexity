@@ -37,6 +37,9 @@ sim_output/
 outputs/
 *.log
 
+# Local datasets (raw data + analysis artifacts), kept local-only
+datasets/
+
 # Local analysis scripts and figure outputs
 examples/figures/
 examples/_*.py
