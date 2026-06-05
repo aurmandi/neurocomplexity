@@ -39,6 +39,42 @@ metadata from an optional paired `recording`. SpikeInterface is the
 recommended path for formats not natively supported here (Open Ephys,
 Blackrock, Plexon, MEArec, NEO-readable, …).
 
+## `from_dict(spike_times_by_unit, duration, unit_metadata=None, sampling_rate=None, hint="dict")`
+
+The in-memory loader. Use it when your data does not arrive as a sorter
+directory — a `.mat` export, a custom binary, a NumPy array you already
+have in a notebook. You supply the spike trains; `from_dict` assembles
+the `SpikeRecording`.
+
+- `spike_times_by_unit` — `{unit_id: spike_times_seconds}`. Each value
+  is a 1-D array of spike times in **seconds**. Keys are the unit ids;
+  if you pass `unit_metadata`, its `id` column must match these keys.
+- `duration` — recording length in seconds. Set it explicitly: rate and
+  avalanche statistics use it to define the final time bin, so inferring
+  it from the last spike silently drops the trailing window.
+- `unit_metadata` — optional per-unit `DataFrame`. Must carry an `id`
+  column. Columns the package recognises (`quality`, `firing_rate`,
+  `peak_channel`, `brain_area`) feed `filter_units` and
+  `with_populations` directly; any other columns pass through verbatim.
+- `sampling_rate` — source sampling rate in Hz, stored for provenance.
+- `hint` — short label recorded in the recording's provenance for later
+  identification.
+
+```python
+import numpy as np
+import neurocomplexity as nc
+
+spike_times_by_unit = {0: np.array([0.1, 0.4, 1.2]),
+                       1: np.array([0.3, 0.9, 1.1, 1.8])}
+
+rec = nc.io.from_dict(spike_times_by_unit, duration=2.0, hint="example")
+```
+
+For a worked end-to-end example — splitting a flattened multi-session
+release into one recording, building the metadata table, and attaching
+brain-area labels — see
+`examples/npultra_waveforms_2024_tutorial.ipynb`.
+
 ## Security note on `params.py`
 
 Phy writes `params.py` as executable Python. `from_phy` and
