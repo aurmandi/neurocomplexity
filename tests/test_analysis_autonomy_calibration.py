@@ -40,10 +40,6 @@ def test_permutation_type_i_near_nominal():
 
 
 def test_permutation_path_runs_and_bounds_p():
-    import numpy as np
-    from neurocomplexity.analysis.autonomy import autonomy
-    from neurocomplexity.benchmarks.simulators.ar_processes import var1
-    from neurocomplexity.benchmarks.cases.info_theory import _ar_to_recording
     X = var1(A=np.array([[0.5, 0.0], [0.3, 0.5]]), Sigma=np.eye(2),
              n_samples=2000, seed=1)
     rec = _ar_to_recording(X[:, 0], X[:, 1], base_rate_hz=80.0,
