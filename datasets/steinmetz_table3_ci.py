@@ -26,7 +26,8 @@ def F(r, k):
 
 
 def main():
-    rows = list(csv.DictReader(open("datasets/steinmetz_results.csv")))
+    with open("datasets/steinmetz_results.csv") as fh:
+        rows = list(csv.DictReader(fh))
     by_mouse = {}
     for r in rows:
         by_mouse.setdefault(r["mouse"], []).append(r)

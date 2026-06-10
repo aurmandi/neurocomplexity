@@ -158,7 +158,16 @@ def bootstrap_avalanche_exponents(
     ci_level: float = 0.95,
     n_jobs: int = 1,
 ) -> InferenceResult:
-    """Bootstrap (alpha_s, alpha_t) by resampling avalanches with replacement."""
+    """Bootstrap (alpha_s, alpha_t, gamma_fit) by resampling avalanches.
+
+    Resamples avalanches with replacement and refits the three exponents on
+    each draw, returning component-wise BCa intervals (``observed``,
+    ``ci_lower``, ``ci_upper`` are length-3 vectors ordered
+    ``[alpha_s, alpha_t, gamma_fit]``). The ``gamma_fit`` component can be NaN
+    for near-degenerate resamples (zero regression slope); ``_ci_from_dist``
+    drops NaN replicates and returns NaN bounds for that component rather than
+    a spuriously narrow interval.
+    """
     sizes = np.asarray(result.sizes, dtype=np.int64)
     lifetimes = np.asarray(result.lifetimes, dtype=float)
     bs = float(result.optimal_bin / 1000.0)
