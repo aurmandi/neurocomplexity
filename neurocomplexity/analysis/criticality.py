@@ -327,9 +327,27 @@ def _branching(counts_1d: np.ndarray) -> float:
     return float(np.mean(b[nz] / a[nz]))
 
 
+def _adaptive_bin_ms(rec: SpikeRecording, populations: Sequence[str]) -> float:
+    """Mean inter-event-interval bin (Beggs & Plenz 2003), in milliseconds.
+
+    Bin width = recording duration / total pooled spike count across the
+    chosen populations, i.e. the mean interval between successive population
+    events. Returns 4.0 ms if there are fewer than 2 spikes or invalid duration.
+    """
+    ids = []
+    for name in populations:
+        mask = rec.populations[name]
+        ids.append(rec.units.loc[mask, "id"].to_numpy(dtype=np.int64))
+    keep = np.concatenate(ids) if ids else np.array([], dtype=np.int64)
+    n_spikes = int(np.isin(rec.unit_ids, keep).sum()) if keep.size else 0
+    if n_spikes < 2 or rec.duration <= 0:
+        return 4.0
+    return (rec.duration / n_spikes) * 1000.0
+
+
 def criticality(rec: SpikeRecording,
                 populations: Sequence[str] | None = None,
-                bin_size: float | Sequence[float] = 4.0,
+                bin_size: float | str | Sequence[float] = 4.0,
                 *,
                 regression: str = "ols",
                 ) -> CriticalityResult:
@@ -382,6 +400,13 @@ def criticality(rec: SpikeRecording,
     if not populations:
         raise ValueError("no populations to analyse")
 
+    adaptive = isinstance(bin_size, str) and bin_size == "adaptive"
+    if isinstance(bin_size, str) and not adaptive:
+        raise ValueError(
+            f"bin_size string must be 'adaptive'; got {bin_size!r}")
+    if adaptive:
+        bin_size = _adaptive_bin_ms(rec, populations)
+
     # Normalise bin_size to a sequence; remember whether the user
     # passed a scalar so we can suppress the multi-bin notice and the
     # .fits table in that case.
@@ -414,7 +439,8 @@ def criticality(rec: SpikeRecording,
 
     _params = {"populations": list(populations),
                "bin_size": list(bin_size_seq),
-               "bin_selection": "single" if single_bin else "r2_sweep",
+               "bin_selection": ("adaptive" if adaptive else
+                                 ("single" if single_bin else "r2_sweep")),
                "regression": regression}
 
     fits: list[dict] = []
