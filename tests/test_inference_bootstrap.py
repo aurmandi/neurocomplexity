@@ -32,9 +32,10 @@ def test_bootstrap_avalanche_returns_distribution():
     rec = _rec_for_avalanches()
     result = criticality(rec, bin_size=(4, 8))
     inf = bootstrap_avalanche_exponents(result, rec, n=20, seed=0)
-    assert inf.bootstrap_distribution.shape == (20, 2)
-    assert np.asarray(inf.ci_lower).shape == (2,)
-    assert np.asarray(inf.ci_upper).shape == (2,)
+    # 3-vector: [alpha_s (tau), alpha_t (alpha), gamma_fit]
+    assert inf.bootstrap_distribution.shape == (20, 3)
+    assert np.asarray(inf.ci_lower).shape == (3,)
+    assert np.asarray(inf.ci_upper).shape == (3,)
     assert inf.ci_level == 0.95
 
 
@@ -109,3 +110,19 @@ def test_bootstrap_dispatch_unknown_raises():
     class Foo: ...
     with pytest.raises(TypeError):
         inf_bootstrap(Foo(), None, n=5, seed=0)
+
+
+def test_avalanche_bootstrap_includes_gamma_fit():
+    import numpy as np
+    from neurocomplexity.analysis.criticality import criticality
+    from neurocomplexity.inference.bootstrap import bootstrap_avalanche_exponents
+    from neurocomplexity.benchmarks.simulators.branching_network import (
+        trial_based_avalanches,
+    )
+    rec = trial_based_avalanches(n_units=40, n_trials=3000, m=1.0,
+                                 bin_ms=4.0, seed=0)
+    res = criticality(rec, populations=["all"], bin_size=(4.0,))
+    inf = bootstrap_avalanche_exponents(res, rec, n=200, seed=0)
+    assert inf.observed.shape == (3,)
+    assert np.asarray(inf.ci_lower).shape == (3,)
+    assert np.asarray(inf.ci_upper).shape == (3,)

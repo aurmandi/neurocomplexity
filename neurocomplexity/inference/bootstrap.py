@@ -169,11 +169,11 @@ def bootstrap_avalanche_exponents(
     def _one(s):
         rng = np.random.default_rng(s)
         idx = rng.integers(0, n_av, n_av)
-        a_s, a_t, _gf, _r2 = fit_avalanche_exponents(sizes[idx], lifetimes[idx], bs)
-        return np.array([a_s, a_t])
+        a_s, a_t, gf, _r2 = fit_avalanche_exponents(sizes[idx], lifetimes[idx], bs)
+        return np.array([a_s, a_t, gf])
 
     dist = np.stack(_run(_child_seeds(seed, n), _one, n_jobs), axis=0)
-    obs = np.array([result.alpha_s, result.alpha_t])
+    obs = np.array([result.alpha_s, result.alpha_t, result.gamma_fit])
     lo, hi = _ci_from_dist(dist, ci_level, observed=obs)
     return InferenceResult(
         statistic_name="avalanche_exponents",
