@@ -375,7 +375,10 @@ def criticality(rec: SpikeRecording,
         scan multiple candidates; the per-bin fit table is then
         available on the returned object as ``result.fits``. As a
         standalone alternative that returns only the table without
-        picking a winner, use :func:`bin_size_sweep`.
+        picking a winner, use :func:`bin_size_sweep`. Pass the string
+        ``"adaptive"`` to set the bin width to the per-population mean
+        inter-event interval (recording duration / pooled spike count;
+        Beggs & Plenz 2003).
     regression
         Estimator used for the ``<S>(T)`` regression that produces
         ``gamma_fit``. ``"ols"`` (default — ordinary least squares,
