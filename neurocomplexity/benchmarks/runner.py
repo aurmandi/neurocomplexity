@@ -80,6 +80,7 @@ def _ensure_cases_loaded() -> None:
         dimensionality,
         info_theory,
         pid,
+        shape_collapse,
     )
 
 
