@@ -8,6 +8,12 @@ Reports per-population Granger-dependency F-test:
 
 The full and reduced models are nested OLS fits on the same lagged design
 matrix, so the F-statistic is exactly F-distributed under the Gaussian null.
+Empirically, on Poisson-binned spike counts the per-population Type-I rate is
+mildly anti-conservative (~0.07-0.08 at nominal 0.05); the calibration-free
+circular-shift permutation path (``significance="permutation"``) shows the
+same offset, indicating it stems from binning and finite-sample VAR structure
+rather than non-Gaussianity. Treat p-values near 0.05 cautiously and prefer
+the permutation path for publication-grade inference.
 
 The fail-to-reject interpretation is documented in the manuscript §2.4.6:
 large p is NOT positive evidence of independence; the test may be
