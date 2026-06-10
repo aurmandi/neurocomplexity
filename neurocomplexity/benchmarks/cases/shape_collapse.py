@@ -18,8 +18,8 @@ from neurocomplexity.benchmarks.simulators.branching_network import (
 )
 
 
-@register("shape_collapse.collapse")
-def bench_shape_collapse(n_reps: int = 50, seed: int = 0) -> BenchmarkResult:
+@register("shape_collapse.gamma")
+def bench_gamma_collapse(n_reps: int = 50, seed: int = 0) -> BenchmarkResult:
     """Friedman shape collapse recovers mean-field gamma = 2.0 within 0.40.
 
     Tolerance 0.40 reflects the finite-sample bias of shape collapse on
@@ -45,12 +45,13 @@ def bench_shape_collapse(n_reps: int = 50, seed: int = 0) -> BenchmarkResult:
     err = abs(gamma_mean - 2.0)
     tol = 0.40
     return BenchmarkResult(
-        name="shape_collapse.collapse",
+        name="shape_collapse.gamma",
         observed=err,
         expected=0.0,
         tolerance=tol,
         passed=bool(np.isfinite(err) and err < tol),
         runtime_s=time.time() - t0,
         n_reps=n_reps,
-        metadata={"gamma_mean": gamma_mean, "n_used": len(gammas)},
+        metadata={"gamma_mean": gamma_mean, "n_used": len(gammas),
+                  "n_skipped": int(n_reps) - len(gammas)},
     )
