@@ -4,7 +4,10 @@ Reports per-population Granger-dependency F-test:
     * p-value   — fail-to-reject p (high p ⇒ data consistent with
                   externals providing no predictive advantage)
     * F-stat    — F-statistic of the nested test
-    * chosen_lag — BIC-selected lag of the full VAR (≥ 1)
+    * chosen_lag — BIC-selected lag of the full OLS model (≥ 1)
+
+The full and reduced models are nested OLS fits on the same lagged design
+matrix, so the F-statistic is exactly F-distributed under the Gaussian null.
 
 The fail-to-reject interpretation is documented in the manuscript §2.4.6:
 large p is NOT positive evidence of independence; the test may be
@@ -47,14 +50,14 @@ class AutonomyResult:
         ``nan`` when the fit failed (degenerate columns, too few samples,
         or convergence error).
     chosen_lags
-        Mapping ``{population_name: lag}`` of the BIC-selected VAR order
+        Mapping ``{population_name: lag}`` of the BIC-selected lag order
         actually used for the full model (minimum 1, capped at ``max_lag``).
         Reports the autoregressive memory the model captured, distinct from
         the requested ``max_lag``.
     bin_size_seconds
         Bin size used to turn spikes into population-count series.
     max_lag
-        Maximum VAR lag the BIC search was allowed to consider.
+        Maximum lag the BIC search was allowed to consider.
     source
         Back-pointer to the :class:`~neurocomplexity.core.provenance.ProvenanceRecord`
         of the source recording.
@@ -91,11 +94,16 @@ def _lagged_design(X: np.ndarray, lag: int):
     return y, Z_full, Z_red
 
 
-def _ols_ssr(y: np.ndarray, Z: np.ndarray) -> tuple[float, int]:
-    """OLS residual sum of squares and number of parameters (columns of Z)."""
-    beta, _, _, _ = np.linalg.lstsq(Z, y, rcond=None)
+def _ols_ssr(y: np.ndarray, Z: np.ndarray) -> tuple[float, int, int]:
+    """OLS residual sum of squares, n_parameters, and design-matrix rank.
+
+    ``rank < Z.shape[1]`` signals a rank-deficient (collinear) design, where
+    ``lstsq`` returns a least-norm solution whose SSR can be spuriously small;
+    callers treat that as a degenerate fit.
+    """
+    beta, _, rank, _ = np.linalg.lstsq(Z, y, rcond=None)
     resid = y - Z @ beta
-    return float(resid @ resid), int(Z.shape[1])
+    return float(resid @ resid), int(Z.shape[1]), int(rank)
 
 
 def _autonomy_for(counts: np.ndarray, target_col: int, max_lag: int, *,
@@ -124,8 +132,8 @@ def _autonomy_for(counts: np.ndarray, target_col: int, max_lag: int, *,
         if n < (P * lag + 1) + 5:
             break
         y, Zf, _ = _lagged_design(X, lag)
-        ssr_f, kf = _ols_ssr(y, Zf)
-        if ssr_f <= 0:
+        ssr_f, kf, rank_f = _ols_ssr(y, Zf)
+        if ssr_f <= 0 or rank_f < kf:
             continue
         bic = n * np.log(ssr_f / n) + kf * np.log(n)
         if best is None or bic < best[0]:
@@ -135,12 +143,12 @@ def _autonomy_for(counts: np.ndarray, target_col: int, max_lag: int, *,
     chosen_lag = best[1]
 
     y, Zf, Zr = _lagged_design(X, chosen_lag)
-    ssr_full, kf = _ols_ssr(y, Zf)
-    ssr_red, kr = _ols_ssr(y, Zr)
+    ssr_full, kf, rank_full = _ols_ssr(y, Zf)
+    ssr_red, kr, _ = _ols_ssr(y, Zr)
     n = len(y)
     df_full = n - kf
     df_restr = kf - kr  # = chosen_lag * (P - 1) external-lag restrictions
-    if df_full <= 0 or df_restr <= 0 or ssr_full <= 0:
+    if df_full <= 0 or df_restr <= 0 or ssr_full <= 0 or rank_full < kf:
         return float("nan"), float("nan"), chosen_lag
     f_stat = ((ssr_red - ssr_full) / df_restr) / (ssr_full / df_full)
     if not np.isfinite(f_stat) or f_stat < 0:
@@ -151,17 +159,21 @@ def _autonomy_for(counts: np.ndarray, target_col: int, max_lag: int, *,
     elif significance == "permutation":
         if rng is None:
             rng = np.random.default_rng(0)
+        # Only the external columns are shifted, so the target column (and
+        # hence the reduced-model design and ssr_red) is invariant across
+        # surrogates — reuse ssr_red rather than recompute it each draw. The
+        # 1-sample minimum shift preserves short-range autocorrelation, a
+        # known conservative bias of circular-shift permutation tests.
         ge = 0
         for _ in range(n_perm):
             Xs = X.copy()
             for c in range(1, P):  # shift each external column independently
                 Xs[:, c] = np.roll(X[:, c], int(rng.integers(1, T)))
-            ys, Zfs, Zrs = _lagged_design(Xs, chosen_lag)
-            ssr_fs, _ = _ols_ssr(ys, Zfs)
-            ssr_rs, _ = _ols_ssr(ys, Zrs)
-            if ssr_fs <= 0:
+            ys, Zfs, _ = _lagged_design(Xs, chosen_lag)
+            ssr_fs, kfs, rank_fs = _ols_ssr(ys, Zfs)
+            if ssr_fs <= 0 or rank_fs < kfs:
                 continue
-            f_s = ((ssr_rs - ssr_fs) / df_restr) / (ssr_fs / (n - kf))
+            f_s = ((ssr_red - ssr_fs) / df_restr) / (ssr_fs / df_full)
             if np.isfinite(f_s) and f_s >= f_stat:
                 ge += 1
         p_val = (ge + 1) / (n_perm + 1)  # Phipson-Smyth (2010) +1 floor

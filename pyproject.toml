@@ -14,7 +14,6 @@ dependencies = [
     "numpy>=1.24,<3",
     "scipy>=1.10,<2",
     "pandas>=2.0,<3",
-    "statsmodels>=0.14,<1",
     "tqdm>=4.65,<5",
     "joblib>=1.3,<2",
 ]
