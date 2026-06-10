@@ -20,8 +20,6 @@ from dataclasses import dataclass, field
 
 import numpy as np
 from scipy.stats import f as f_dist
-from statsmodels.tsa.api import VAR
-from statsmodels.tsa.ar_model import AutoReg
 
 from neurocomplexity.analysis._binning import bin_spikes
 from neurocomplexity.core.recording import SpikeRecording
@@ -74,65 +72,113 @@ class AutonomyResult:
     params: dict = field(default_factory=dict)
 
 
-def _autonomy_for(counts: np.ndarray, target_col: int, max_lag: int
-                  ) -> tuple[float, float, int]:
-    """counts: (T, P) array, target in column target_col, others are externals.
+def _lagged_design(X: np.ndarray, lag: int):
+    """Target equation design. X: (T, P), target is column 0.
 
-    Returns
-    -------
-    (p_value, f_statistic, chosen_lag)
-        ``(nan, nan, 0)`` on any failure (degenerate columns, fit error,
-        insufficient samples).
+    Returns (y, Z_full, Z_red) aligned to rows t in [lag, T):
+    y          - target at time t
+    Z_full     - const + lags 1..lag of ALL P populations
+    Z_red      - const + lags 1..lag of the target only
+    """
+    T, P = X.shape
+    rows = T - lag
+    y = X[lag:, 0]
+    full_blocks = [X[lag - j: T - j, :] for j in range(1, lag + 1)]
+    red_blocks = [X[lag - j: T - j, 0:1] for j in range(1, lag + 1)]
+    const = np.ones((rows, 1))
+    Z_full = np.concatenate([const, *full_blocks], axis=1)
+    Z_red = np.concatenate([const, *red_blocks], axis=1)
+    return y, Z_full, Z_red
+
+
+def _ols_ssr(y: np.ndarray, Z: np.ndarray) -> tuple[float, int]:
+    """OLS residual sum of squares and number of parameters (columns of Z)."""
+    beta, _, _, _ = np.linalg.lstsq(Z, y, rcond=None)
+    resid = y - Z @ beta
+    return float(resid @ resid), int(Z.shape[1])
+
+
+def _autonomy_for(counts: np.ndarray, target_col: int, max_lag: int, *,
+                  significance: str = "analytic", n_perm: int = 200,
+                  rng: "np.random.Generator | None" = None
+                  ) -> tuple[float, float, int]:
+    """Nested-OLS Granger F-test for one target. Same design matrix for full
+    and reduced models, so the F-statistic is exactly F-distributed under the
+    Gaussian null (analytic path) or calibrated by circular-shift surrogates
+    of the external columns (permutation path).
+
+    Returns (p_value, f_statistic, chosen_lag); (nan, nan, 0) on failure.
     """
     T, P = counts.shape
     if T < max_lag + 5 or P < 2:
         return float("nan"), float("nan"), 0
-
-    # reorder so target is column 0 (statsmodels VAR uses all-equations fit; we
-    # only inspect the target equation's residuals)
     order = [target_col] + [i for i in range(P) if i != target_col]
     X = counts[:, order].astype(np.float64)
-    # VAR requires column variance; guard.
     if np.any(np.var(X, axis=0) == 0):
         return float("nan"), float("nan"), 0
 
-    try:
-        var_fit = VAR(X).fit(maxlags=max_lag, ic="bic")
-    except Exception:
+    # BIC lag selection on the full target-equation OLS.
+    best = None  # (bic, lag)
+    for lag in range(1, max_lag + 1):
+        n = T - lag
+        if n < (P * lag + 1) + 5:
+            break
+        y, Zf, _ = _lagged_design(X, lag)
+        ssr_f, kf = _ols_ssr(y, Zf)
+        if ssr_f <= 0:
+            continue
+        bic = n * np.log(ssr_f / n) + kf * np.log(n)
+        if best is None or bic < best[0]:
+            best = (bic, lag)
+    if best is None:
         return float("nan"), float("nan"), 0
-    chosen_lag = max(1, var_fit.k_ar)
-    resid_full = var_fit.resid[:, 0]
-    ssr_full = float(np.sum(resid_full ** 2))
-    df_full = T - chosen_lag * P - 1
-    if df_full <= 0 or ssr_full <= 0:
-        return float("nan"), float("nan"), chosen_lag
+    chosen_lag = best[1]
 
-    try:
-        ar_fit = AutoReg(X[:, 0], lags=chosen_lag, old_names=False).fit()
-    except Exception:
+    y, Zf, Zr = _lagged_design(X, chosen_lag)
+    ssr_full, kf = _ols_ssr(y, Zf)
+    ssr_red, kr = _ols_ssr(y, Zr)
+    n = len(y)
+    df_full = n - kf
+    df_restr = kf - kr  # = chosen_lag * (P - 1) external-lag restrictions
+    if df_full <= 0 or df_restr <= 0 or ssr_full <= 0:
         return float("nan"), float("nan"), chosen_lag
-    resid_red = ar_fit.resid
-    ssr_red = float(np.sum(resid_red ** 2))
-
-    df_restr = chosen_lag * (P - 1)
-    if df_restr <= 0:
-        return float("nan"), float("nan"), chosen_lag
-
     f_stat = ((ssr_red - ssr_full) / df_restr) / (ssr_full / df_full)
     if not np.isfinite(f_stat) or f_stat < 0:
         return float("nan"), float("nan"), chosen_lag
-    p_val = float(1.0 - f_dist.cdf(f_stat, df_restr, df_full))
-    # high p → fail to reject "externals don't help"
-    # (interpretation: data consistent with no Granger contribution; NOT
-    # positive evidence of independence — see module docstring)
-    p_val = max(0.0, min(1.0, p_val))
-    return p_val, float(f_stat), int(chosen_lag)
+
+    if significance == "analytic":
+        p_val = float(1.0 - f_dist.cdf(f_stat, df_restr, df_full))
+    elif significance == "permutation":
+        if rng is None:
+            rng = np.random.default_rng(0)
+        ge = 0
+        for _ in range(n_perm):
+            Xs = X.copy()
+            for c in range(1, P):  # shift each external column independently
+                Xs[:, c] = np.roll(X[:, c], int(rng.integers(1, T)))
+            ys, Zfs, Zrs = _lagged_design(Xs, chosen_lag)
+            ssr_fs, _ = _ols_ssr(ys, Zfs)
+            ssr_rs, _ = _ols_ssr(ys, Zrs)
+            if ssr_fs <= 0:
+                continue
+            f_s = ((ssr_rs - ssr_fs) / df_restr) / (ssr_fs / (n - kf))
+            if np.isfinite(f_s) and f_s >= f_stat:
+                ge += 1
+        p_val = (ge + 1) / (n_perm + 1)  # Phipson-Smyth (2010) +1 floor
+    else:
+        raise ValueError(
+            f"significance must be 'analytic' or 'permutation'; got {significance!r}")
+    return max(0.0, min(1.0, p_val)), float(f_stat), int(chosen_lag)
 
 
 def autonomy(rec: SpikeRecording,
              populations: Sequence[str] | None = None,
              bin_size_ms: float = 10.0,
              max_lag: int = 5,
+             *,
+             significance: str = "analytic",
+             n_perm: int = 200,
+             seed: int = 0,
              ) -> AutonomyResult:
     """Autonomy index per population using every other population as externals."""
     from neurocomplexity._warnings import _warn_if_uncurated
@@ -147,10 +193,13 @@ def autonomy(rec: SpikeRecording,
     values: dict[str, float] = {}
     f_stats: dict[str, float] = {}
     chosen_lags: dict[str, int] = {}
+    rng = np.random.default_rng(seed)
     from neurocomplexity._progress import progress_iter
     for i, name in progress_iter(list(enumerate(populations)),
                                  total=len(populations), desc="autonomy"):
-        p_val, f_val, lag = _autonomy_for(counts, target_col=i, max_lag=max_lag)
+        p_val, f_val, lag = _autonomy_for(
+            counts, target_col=i, max_lag=max_lag,
+            significance=significance, n_perm=n_perm, rng=rng)
         values[name] = p_val
         f_stats[name] = f_val
         chosen_lags[name] = lag
@@ -164,5 +213,8 @@ def autonomy(rec: SpikeRecording,
         source=rec.source,
         params={"populations": list(populations),
                 "bin_size_ms": float(bin_size_ms),
-                "max_lag": int(max_lag)},
+                "max_lag": int(max_lag),
+                "significance": significance,
+                "n_perm": int(n_perm),
+                "seed": int(seed)},
     )
