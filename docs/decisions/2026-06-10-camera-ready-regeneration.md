@@ -5,14 +5,17 @@ before camera-ready submission and update the manuscript if numbers move.
 
 ## 1. Full dimensionality benchmark (~208 min)
 
-The fast `results/benchmarks/v1.2.0.csv` regeneration ran the changed/added cases
+The fast `results/benchmarks/v1.1.0.csv` regeneration ran the changed/added cases
 (`shape_collapse.gamma`, `info_theory.autonomy_calibration`) and carried the
-`dimensionality.pr_rank` row forward from v1.1.0 unchanged (the dimensionality code
-was not touched). For the archival baseline, regenerate it at full reps:
+`dimensionality.pr_rank` row forward from the prior baseline unchanged (the
+dimensionality code was not touched). The rigor-hardening pass ships under the
+existing **1.1.0** release (no version bump), so the 12-case suite overwrites the
+1.1.0 benchmark artifact in place. For the archival baseline, regenerate the
+dimensionality row at full reps:
 
-    py -3 -m neurocomplexity benchmark --case dimensionality.pr_rank --reps 200 -o results/benchmarks/_dim_v120.csv
+    py -3 -m neurocomplexity benchmark --case dimensionality.pr_rank --reps 200 -o results/benchmarks/_dim_reps200.csv
 
-Merge the single row into `results/benchmarks/v1.2.0.csv`, replacing the carried-forward
+Merge the single row into `results/benchmarks/v1.1.0.csv`, replacing the carried-forward
 value.
 
 ## 2. Steinmetz bin-sensitivity sweep (multi-hour)

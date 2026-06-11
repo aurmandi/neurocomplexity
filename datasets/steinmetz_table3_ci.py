@@ -1,6 +1,13 @@
 """Per-population BCa bootstrap CIs (tau=alpha_s, alpha=alpha_t, gamma_fit)
-for the criticality-passing Steinmetz populations. Appends CI columns to
+for the crackling-consistent Steinmetz populations. Appends CI columns to
 datasets/steinmetz_results.csv. Allen-grade: BCa, n=2000 avalanche resamples.
+
+Selection matches the canonical paper.tex Sec. 3.3 funnel: N>=30 grey-matter
+(non-tract) populations whose shape-collapse exponent matches the crackling
+prediction to within 10% and whose size-lifetime fit has R^2>=0.85. The
+branching ratio sigma is NOT used as a gate (it is sub-sampling-biased and
+correlates with unit count; see paper.tex), so this yields the 37-population
+set, not the 27-population sigma-gated subset.
 
 Run:  py -3 datasets/steinmetz_table3_ci.py
 """
@@ -13,7 +20,7 @@ from steinmetz_analysis import build_area_units, WINDOW_S
 
 warnings.simplefilter("ignore")
 SEED, NBOOT = 0, 2000
-SIG_LO, SIG_HI, DG_THRESH, R2_THRESH, MIN_N = 0.85, 1.15, 0.10, 0.85, 30
+DG_THRESH, R2_THRESH, MIN_N = 0.10, 0.85, 30
 TRACT = {"em", "fr", "or", "fp", "ccg", "dhc", "fi", "ccb", "int", "cing",
          "alv", "VL", "opt", "st", "scwm", "ml", "arb", "sm", "aco"}
 
@@ -35,9 +42,7 @@ def main():
     for mouse, mrows in by_mouse.items():
         au, _ = build_area_units(mouse)
         for r in mrows:
-            sig = F(r, "branching")
             passes = (int(r["N"]) >= MIN_N and r["area"] not in TRACT
-                      and SIG_LO <= sig <= SIG_HI
                       and F(r, "sethna_delta") <= DG_THRESH
                       and F(r, "r2") >= R2_THRESH)
             if not passes:
