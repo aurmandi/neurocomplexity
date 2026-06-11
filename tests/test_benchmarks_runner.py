@@ -17,10 +17,11 @@ def test_list_cases_returns_list():
     assert isinstance(names, list)
 
 
-def test_list_cases_includes_all_eleven():
+def test_list_cases_includes_all_twelve():
     names = list_cases()
     expected = {
         "criticality.m_hat", "criticality.exponents",
+        "shape_collapse.gamma",
         "info_theory.te_convergence", "info_theory.te_null",
         "info_theory.autonomy_calibration",
         "pid.atoms_xor", "pid.atoms_and", "pid.atoms_copy",
