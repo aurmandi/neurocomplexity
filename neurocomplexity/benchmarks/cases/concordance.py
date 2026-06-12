@@ -260,3 +260,73 @@ def concordance_pid_vs_dit():
         "tolerance": tol,
         "pass": passed,
     }
+
+
+#: Williams-Beer test distribution "WB2" (Williams & Beer 2010), on which
+#: I_min and BROJA provably disagree. X, Y are independent fair bits; the
+#: target Z is a deterministic function of the pair: (0,0)->0, (0,1)->1,
+#: (1,0)->2, (1,1)->1. I_min attributes ~0.35 nats more redundancy than
+#: BROJA here, so it is a sharp test of the atom-definition dependence that
+#: the canonical XOR/AND/COPY cases (where the definitions coincide) cannot
+#: expose.
+_WB2_MAP = {(0, 0): 0, (0, 1): 1, (1, 0): 2, (1, 1): 1}
+
+
+@_register
+def concordance_imin_vs_broja_wb2():
+    """Characterise the I_min vs BROJA redundancy gap on the WB2 distribution.
+
+    On the canonical XOR/AND/COPY distributions used elsewhere in this module
+    the Williams-Beer I_min and BROJA atom definitions coincide, so those cases
+    cannot detect the over-attribution of redundancy that I_min is known to
+    exhibit (Bertschinger et al. 2014). The WB2 distribution
+    (\\_WB2_MAP) is a minimal case where the two definitions diverge. This case
+    (i) confirms neurocomplexity's I_min redundancy concords with dit's PID_WB
+    (the same atom definition) to machine precision, and (ii) *quantifies* the
+    I_min minus BROJA redundancy gap, so the documented limitation is bounded
+    numerically rather than merely asserted. The gap is reported, not failed:
+    the two estimators are expected to differ here. The pass flag tracks only
+    the nc-vs-dit-WB concordance.
+    """
+    from neurocomplexity.analysis.pid import _redundancy_imin
+
+    L_t = 3  # target alphabet {0, 1, 2}; sources are binary
+    joint = np.zeros((L_t, 2, 2), dtype=np.float64)  # [t, s1, s2]
+    for (s1, s2), t in _WB2_MAP.items():
+        joint[t, s1, s2] += 0.25
+    nc_red = float(_redundancy_imin(joint))
+
+    try:
+        import dit
+        from dit.pid import PID_BROJA, PID_WB
+    except ImportError:
+        return {
+            "name": "imin_vs_broja_wb2",
+            "skipped": True,
+            "reason": "dit not installed (pip install dit)",
+            "tolerance": 0.02,
+            "pass": False,
+            "nc_redundancy_imin": nc_red,
+        }
+
+    outcomes = [f"{s1}{s2}{t}" for (s1, s2), t in _WB2_MAP.items()]
+    d = dit.Distribution(outcomes, [0.25] * len(outcomes))
+    d.set_rv_names("XYZ")
+    ln2 = float(np.log(2.0))
+    wb_red = float(PID_WB(d, [("X",), ("Y",)], "Z")[(("X",), ("Y",))]) * ln2
+    broja_red = float(PID_BROJA(d, [("X",), ("Y",)], "Z")[(("X",), ("Y",))]) * ln2
+
+    diff_nc_wb = abs(nc_red - wb_red)
+    imin_broja_gap = abs(wb_red - broja_red)
+    tol = 0.02  # nats: governs only the nc-vs-dit-WB concordance
+    return {
+        "name": "imin_vs_broja_wb2",
+        "skipped": False,
+        "nc_redundancy_imin": nc_red,
+        "dit_wb_redundancy": wb_red,
+        "dit_broja_redundancy": broja_red,
+        "diff_nc_vs_dit_wb": float(diff_nc_wb),
+        "imin_minus_broja_redundancy_gap": float(imin_broja_gap),
+        "tolerance": tol,
+        "pass": diff_nc_wb < tol,
+    }

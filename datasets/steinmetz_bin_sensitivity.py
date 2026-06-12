@@ -1,9 +1,11 @@
 """Bin-size sensitivity of the Steinmetz criticality result (M3 robustness).
 
-For every criticality-passing population, re-fit tau (alpha_s), alpha
-(alpha_t), gamma_fit, and the Sethna deviation at bins {2, 4, 8} ms and the
-per-population adaptive (mean-IEI) bin. Writes a tidy long-format CSV so the
-manuscript can state the exponents are bin-robust rather than a 4-ms artifact.
+For every crackling-consistent population (sigma-free 37-pop funnel, matching
+the manuscript), re-fit tau (alpha_s), alpha (alpha_t), gamma_fit, and the
+Sethna deviation at bins {2, 4, 8} ms and the per-population adaptive (mean-IEI)
+bin. Writes a tidy long-format CSV. NB the raw exponents are *not* bin-invariant
+(they track the bin-set avalanche timescale); the manuscript reports the
+crackling-noise *consistency* as the bin-robust quantity, not the raw exponents.
 
 DEFERRED: multi-hour run; execute for the camera-ready revision.
 Run:  py -3 datasets/steinmetz_bin_sensitivity.py
@@ -39,9 +41,9 @@ def main():
     for mouse, mrows in by_mouse.items():
         au, _ = build_area_units(mouse)
         for r in mrows:
-            sig = F(r, "branching")
+            # sigma-FREE funnel: naive branching sigma is the negative control
+            # in the manuscript, NOT a selection criterion (gives 37 pops).
             if not (int(r["N"]) >= MIN_N and r["area"] not in TRACT
-                    and SIG_LO <= sig <= SIG_HI
                     and F(r, "sethna_delta") <= DG_THRESH
                     and F(r, "r2") >= R2_THRESH):
                 continue

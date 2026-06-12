@@ -1,5 +1,19 @@
 # Camera-ready regeneration checklist (2026-06-10)
 
+**STATUS 2026-06-12: BOTH RUNS COMPLETE.**
+1. Dimensionality benchmark: regenerated as 4×50-rep multi-seed chunks (seeds 0-3,
+   single-threaded, sequential/resumable due to repeated machine power-offs).
+   200-rep-equivalent observed = 0.6552 (seed SD 0.0061), vs carried-forward 0.6548
+   — delta 0.0004, far inside tol 1.0. Merged into `results/benchmarks/v1.1.0.csv`.
+   Table 1 ("0.655") and Fig 2 unchanged at display precision; no manuscript rebuild.
+2. Bin-sensitivity sweep: complete on the sigma-free 37-pop funnel. Finding: raw
+   exponents are NOT bin-invariant (mean tau 1.60/1.42/1.29 at 2/4/8 ms), but the
+   crackling-noise *consistency* criterion is robust at/above the 4 ms default
+   (37/37 at 4 ms & adaptive, 33/37 at 8 ms, 23/37 at 2 ms). Reported honestly in
+   §3.3 + new bin-robustness table; the "bin-robust exponents" framing was dropped.
+
+Original deferral note follows.
+
 Two long runs are deferred from the scientific-rigor hardening pass. Execute both
 before camera-ready submission and update the manuscript if numbers move.
 
@@ -25,7 +39,7 @@ Demonstrates the §3.3 exponents are robust to the bin choice (M3), not a 4-ms a
     py -3 datasets/steinmetz_bin_sensitivity.py
 
 Writes `datasets/steinmetz_bin_sensitivity.csv` (tau, alpha, gamma_fit, Sethna delta at
-bins {2, 4, 8, adaptive} ms for each of the 27 criticality-passing populations). Confirm
+bins {2, 4, 8, adaptive} ms for each of the 37 crackling-consistent populations (sigma-free funnel)). Confirm
 tau and alpha are stable across bins (within each population's BCa CI from
 `datasets/steinmetz_table3_ci.py`); add a one-sentence robustness statement +
 supplementary table to paper §3.3. If exponents move beyond their BCa CIs at any bin,
