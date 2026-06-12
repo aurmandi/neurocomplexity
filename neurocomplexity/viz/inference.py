@@ -67,6 +67,7 @@ def figure_bootstrap(
     palette: str = DEFAULT_PALETTE,
     panel_label: str | None = None,
     figsize: tuple[float, float] | None = None,
+    title: str | None = None,
     ax=None,
     nbins: int = 40,
 ):
@@ -81,6 +82,7 @@ def figure_bootstrap(
     lo = _as_scalar(result.ci_lower)
     hi = _as_scalar(result.ci_upper)
 
+    external_ax = ax is not None
     p, fig, ax = _resolve_palette_and_axes(
         palette=palette, ax=ax, figsize=figsize, default_size=(4.0, 2.6),
     )
@@ -105,11 +107,11 @@ def figure_bootstrap(
         rug_y = 0.0
         ax.plot(boot, np.full_like(boot, rug_y), "|",
                 color=p["signal"], ms=6, mew=0.8, zorder=3)
-        ax.set_ylabel("Density")
+        ax.set_ylabel("Probability density")
     else:
         ax.hist(boot, bins=nbins, color=p["fill"], edgecolor=p["signal"],
                 linewidth=0.4, zorder=2)
-        ax.set_ylabel("Count")
+        ax.set_ylabel("Frequency")
 
     # CI band: soft neutral grey so the observed-line (signal) remains the
     # visual anchor of the panel.
@@ -121,21 +123,24 @@ def figure_bootstrap(
         ax.axvline(observed, color=p["accent"], lw=1.3, zorder=3,
                    label=f"observed = {observed:.3g}")
 
-    ax.set_xlabel(f"{result.statistic_name} (bootstrap replicates)")
+    # Literature convention: x-axis is the estimator itself (Efron &
+    # Tibshirani 1993). Render a single-symbol statistic name with an
+    # estimator hat (e.g. ``m`` → ``m̂``); leave longer names verbatim.
+    sym = result.statistic_name
+    xlab = (fr"$\hat{{{sym}}}$"
+            if isinstance(sym, str) and len(sym) == 1 and sym.isalpha()
+            else str(sym))
+    ax.set_xlabel(xlab)
 
-    # Legend + stats annotation placed ABOVE the data so neither obscures the
-    # histogram. Stats on the left of the title strip, legend on the right.
-    if lo is not None and hi is not None and observed is not None:
-        info = (f"observed = {observed:.3g}\n"
-                f"CI = [{lo:.3g}, {hi:.3g}]\n"
-                f"n = {result.n_resamples}")
-    else:
-        info = f"n = {result.n_resamples}"
-    # Stats box (bigger) → TL; legend (compact) → TR.
-    stats_box(ax, info, corner="tl")
-    ax.legend(loc="upper right", frameon=False, handlelength=1.6,
+    # Legend top-left (replaces the former stats box). The bootstrap cloud
+    # sits centre/right around the observed value, so the top-left corner is
+    # the empty one. observed value + CI live in the legend labels, so no
+    # separate annotation box is needed.
+    ax.legend(loc="upper left", frameon=False, handlelength=1.6,
               borderpad=0.3)
 
+    if title and not external_ax:
+        fig.suptitle(title, fontweight="bold", fontsize=9)
     _apply_panel_label(ax, panel_label)
     return fig
 
