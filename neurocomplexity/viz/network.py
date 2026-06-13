@@ -30,9 +30,9 @@ from neurocomplexity.viz._palettes import DEFAULT_PALETTE, get_palette
 # node fills go pale → deep red (out-strength). Matches the Stetter 2012
 # FIG 7 dMI/TE network convention adopted across the spike-train literature.
 _EDGE_CMAP = LinearSegmentedColormap.from_list(
-    "te_edge_green", ["#D5EBD5", "#1B5E20"])
+    "te_edge_green", ["#9CCC9C", "#13420F"])
 _NODE_CMAP = LinearSegmentedColormap.from_list(
-    "te_node_red", ["#FFFFFF", "#B71C1C"])
+    "te_node_red", ["#FDECEA", "#B71C1C"])
 
 
 def figure_te_network(te_result: TransferEntropyResult,
@@ -181,32 +181,49 @@ def figure_te_network(te_result: TransferEntropyResult,
     if out_strength.max() > 0:
         node_norm = Normalize(vmin=0.0, vmax=float(out_strength.max()))
         node_colors = [_NODE_CMAP(node_norm(s)) for s in out_strength]
+        # Node area also grows with out-strength so the dominant senders read
+        # as large red hubs (FIG 7 convention); a floor keeps silent nodes
+        # visible. Both channels (size + colour) encode the same quantity.
+        smax = float(out_strength.max())
+        node_sizes = [node_px * (0.45 + 0.85 * s / smax) for s in out_strength]
     else:
         node_colors = ["#FFFFFF"] * n_nodes
+        node_sizes = [node_px] * n_nodes
 
     nx.draw_networkx_nodes(G, pos, ax=ax, nodelist=node_list,
-                           node_size=node_px,
+                           node_size=node_sizes,
                            node_color=node_colors, edgecolors=p["text"],
                            linewidths=0.7)
 
     # Edge widths AND edge colours encode TE magnitude on the green cmap.
+    # Normalise from the smallest *significant* edge (not 0) so even the
+    # weakest drawn edge takes a visible mid-green rather than washing out.
     if n_edges > 0:
-        edge_norm = Normalize(vmin=0.0, vmax=max_w)
+        w_all = np.array([G[u][v]["weight"] for u, v in G.edges()], dtype=float)
+        wmin = float(w_all.min())
+        edge_norm = Normalize(vmin=wmin, vmax=max_w if max_w > wmin else wmin + 1e-12)
         widths = []
         ecolors = []
-        for u, v in G.edges():
-            w = G[u][v]["weight"]
-            widths.append(width_scale * np.sqrt(w / max(max_w, 1e-12)))
+        for w in w_all:
+            widths.append(0.6 + width_scale * np.sqrt(w / max(max_w, 1e-12)))
             ecolors.append(_EDGE_CMAP(edge_norm(w)))
         nx.draw_networkx_edges(
             G, pos, ax=ax,
             width=widths,
             edge_color=ecolors,
-            arrows=True, arrowstyle="-|>", arrowsize=10,
+            arrows=True, arrowstyle="-|>", arrowsize=9,
             connectionstyle="arc3,rad=0.15",
             node_size=node_px,
-            alpha=0.9,
+            alpha=0.92,
         )
+        # Colourbar for the edge TE scale (Stetter 2012 FIG 7 convention).
+        import matplotlib.cm as _cm
+        sm = _cm.ScalarMappable(norm=edge_norm, cmap=_EDGE_CMAP)
+        sm.set_array([])
+        cb = fig.colorbar(sm, ax=ax, fraction=0.040, pad=0.02, shrink=0.72)
+        cb.set_label("Transfer entropy", fontsize=6.5)
+        cb.ax.tick_params(labelsize=5.5)
+        cb.outline.set_linewidth(0.6)
 
     # Labels offset radially OUTSIDE the node circle.
     if pos:

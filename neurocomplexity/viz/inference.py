@@ -371,6 +371,10 @@ def figure_significance_matrix(
     ax.set_yticklabels(yl)
     ax.tick_params(top=False, right=False, length=2,
                    labelsize=5.5 if n_cols >= 8 else 6)
+    # TE[i, j] is directed flow source i -> target j: rows are senders,
+    # columns receivers. Label both so the asymmetry reads off the panel.
+    ax.set_xlabel("Target")
+    ax.set_ylabel("Source")
 
     cb = fig.colorbar(im, ax=ax, fraction=0.04, pad=0.03)
     cb.set_label(cb_label, fontsize=6.5)

@@ -55,7 +55,9 @@ def test_figure_te_network_renders_smoke():
     M = _make_matrix()
     te = _te_result(M)
     fig = figure_te_network(te)
-    assert len(fig.axes) == 1
+    # Graph axes + an edge-TE colourbar axes when any edge is drawn.
+    assert len(fig.axes) == 2
+    assert fig.axes[0].axison is False  # the graph panel has its frame off
     plt.close(fig)
 
 
