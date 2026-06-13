@@ -59,6 +59,13 @@ def test_figure_te_network_renders_smoke():
     plt.close(fig)
 
 
+def _arrow_count(fig):
+    """Count FancyArrowPatch instances — one per drawn edge."""
+    from matplotlib.patches import FancyArrowPatch
+    return sum(1 for art in fig.axes[0].get_children()
+               if isinstance(art, FancyArrowPatch))
+
+
 def test_no_null_result_draws_all_positive_edges():
     M = np.array([[0.0, 0.5, 0.0, 0.0],
                   [0.0, 0.0, 0.3, 0.0],
@@ -66,9 +73,8 @@ def test_no_null_result_draws_all_positive_edges():
                   [0.1, 0.0, 0.0, 0.0]], dtype=np.float64)
     te = _te_result(M)
     fig = figure_te_network(te)
-    title = fig.axes[0].get_title(loc="left")
     # 4 positive off-diagonal cells expected
-    assert "4/12" in title
+    assert _arrow_count(fig) == 4
     plt.close(fig)
 
 
@@ -78,8 +84,7 @@ def test_null_result_fdr_filter_drops_edges():
     null = _null(M, p_value=np.ones_like(M), p_value_fdr=p_fdr)
     fig = figure_te_network(_te_result(M), null_result=null, alpha=0.05)
     n_expected = int(((p_fdr < 0.05) & (M > 0) & ~np.eye(4, dtype=bool)).sum())
-    title = fig.axes[0].get_title(loc="left")
-    assert f"{n_expected}/12" in title
+    assert _arrow_count(fig) == n_expected
     plt.close(fig)
 
 
@@ -89,8 +94,7 @@ def test_falls_back_to_raw_p_when_no_fdr():
     null = _null(M, p_value=p_raw, p_value_fdr=None)
     fig = figure_te_network(_te_result(M), null_result=null, alpha=0.05)
     n_expected = int(((p_raw < 0.05) & (M > 0) & ~np.eye(4, dtype=bool)).sum())
-    title = fig.axes[0].get_title(loc="left")
-    assert f"{n_expected}/12" in title
+    assert _arrow_count(fig) == n_expected
     plt.close(fig)
 
 
@@ -99,11 +103,10 @@ def test_alpha_threshold_extremes():
     p = np.full_like(M, 0.04)
     null = _null(M, p_value=p, p_value_fdr=p)
     fig_zero = figure_te_network(_te_result(M), null, alpha=1e-9)
-    assert "0/12" in fig_zero.axes[0].get_title(loc="left")
+    assert _arrow_count(fig_zero) == 0
     plt.close(fig_zero)
     fig_all = figure_te_network(_te_result(M), null, alpha=1.0)
-    title = fig_all.axes[0].get_title(loc="left")
-    assert "12/12" in title
+    assert _arrow_count(fig_all) == 12  # all 4*4 off-diagonal
     plt.close(fig_all)
 
 
@@ -134,12 +137,11 @@ def test_accepts_ax_kwarg():
     plt.close(fig)
 
 
-def test_title_contains_edge_count():
+def test_suptitle_present_by_default():
     M = _make_matrix()
     fig = figure_te_network(_te_result(M))
-    title = fig.axes[0].get_title(loc="left")
-    assert "/12" in title
-    assert "alpha" in title
+    sup = fig._suptitle
+    assert sup is not None and sup.get_text() != ""
     plt.close(fig)
 
 
@@ -182,26 +184,14 @@ def test_node_colors_palette_independent():
     plt.close(fig_f); plt.close(fig_w)
 
 
-def test_palette_kwarg_changes_edge_color():
-    """The palette kwarg still has a visible effect: edges are drawn in the
-    palette's ``signal`` colour, which differs across palettes."""
+def test_palette_kwarg_accepted_across_palettes():
+    """Edge colours follow a TE-magnitude Greens cmap (palette-independent;
+    the green convention is set by Stetter 2012 / inspirations). This test
+    only verifies that the palette kwarg is accepted on every palette."""
     M = _make_matrix()
-    fig_f = figure_te_network(_te_result(M), palette="forest")
-    fig_w = figure_te_network(_te_result(M), palette="wine")
-    def _edge_color(fig):
-        from matplotlib.collections import LineCollection
-        from matplotlib.patches import FancyArrowPatch
-        for art in fig.axes[0].get_children():
-            if isinstance(art, FancyArrowPatch):
-                return art.get_edgecolor()
-            if isinstance(art, LineCollection):
-                return art.get_color()
-        return None
-    ef = _edge_color(fig_f)
-    ew = _edge_color(fig_w)
-    assert ef is not None and ew is not None
-    assert not np.allclose(ef, ew)
-    plt.close(fig_f); plt.close(fig_w)
+    for pal in ("nature", "forest", "wine", "sage"):
+        fig = figure_te_network(_te_result(M), palette=pal)
+        plt.close(fig)
 
 
 def test_p_less_than_2_pops_raises():

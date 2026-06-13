@@ -96,7 +96,7 @@ synthetic fixtures are too small to trigger it).
 `outputs/integration_session_715093703/` (git-ignored):
 `criticality`, `branching`, `branching_bootstrap`, `dimensionality`,
 `shape_collapse`, `pid`, `lmc_complexity`, `mse`, `manifold`,
-`te_significance_matrix`, `te_volcano`, `te_network`.
+`te_significance_matrix`, `te_network`.
 
 ## Reproduction
 

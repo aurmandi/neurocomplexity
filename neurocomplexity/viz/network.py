@@ -1,13 +1,18 @@
 """Effective-connectivity network figure for TransferEntropyResult.
 
-Renders the TE matrix as a directed graph: nodes = populations, edges = TE
-arrows i -> j with width proportional to TE magnitude. Edges are filtered by
-significance when a ``NullTestResult`` (``InferenceResult``) is supplied,
-preferring the FDR-corrected p-values.
+Renders the TE matrix as a directed graph: nodes = populations, edges =
+TE arrows ``i → j`` whose colour and width encode TE magnitude on a green
+sequential scale (Stetter et al. 2012, PLoS Comp Biol Fig 7 convention).
+Node fill encodes out-strength (sum of outgoing TE) on a red sequential
+scale so the dominant senders read directly off the panel. Edges are
+filtered by significance when a ``NullTestResult`` (``InferenceResult``)
+is supplied, preferring the FDR-corrected p-values.
 
 References:
   * Schreiber T (2000). Measuring information transfer. PRL 85, 461.
   * Bullmore E, Sporns O (2009). Complex brain networks. Nat Rev Neurosci 10, 186.
+  * Stetter O et al. (2012). Model-free reconstruction of excitatory neuronal
+    connectivity from calcium imaging signals. PLoS Comp Biol 8, e1002653.
   * Krzywinski M et al. (2009). Circos: an information aesthetic for
     comparative genomics. Genome Res 19, 1639.
 """
@@ -15,16 +20,19 @@ from __future__ import annotations
 
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.colors import LinearSegmentedColormap, Normalize
 
 from neurocomplexity.analysis.transfer_entropy import TransferEntropyResult
 from neurocomplexity.viz._palettes import DEFAULT_PALETTE, get_palette
-from neurocomplexity.viz._style import stats_box
 
 
-def _categorical_colors(palette_name: str, n: int) -> list[str]:
-    p = get_palette(palette_name)
-    cat = p["categorical"]
-    return [cat[i % len(cat)] for i in range(n)]
+# Sequential cmaps: edges go pale → deep green (TE magnitude);
+# node fills go pale → deep red (out-strength). Matches the Stetter 2012
+# FIG 7 dMI/TE network convention adopted across the spike-train literature.
+_EDGE_CMAP = LinearSegmentedColormap.from_list(
+    "te_edge_green", ["#D5EBD5", "#1B5E20"])
+_NODE_CMAP = LinearSegmentedColormap.from_list(
+    "te_node_red", ["#FFFFFF", "#B71C1C"])
 
 
 def figure_te_network(te_result: TransferEntropyResult,
@@ -38,13 +46,15 @@ def figure_te_network(te_result: TransferEntropyResult,
                       seed: int = 0,
                       show_disconnected: bool = True,
                       width_scale: float = 4.0,
+                      title: str | None = "Effective Connectivity (Transfer Entropy)",
                       ):
     """Render a directed effective-connectivity network from a TE matrix.
 
-    Nodes are populations; edges ``i → j`` are drawn with width proportional
-    to ``TE[i, j]`` (clipped to non-zero entries). When ``null_result`` is
-    provided, only edges with ``p_fdr < alpha`` (or ``p < alpha`` if no FDR
-    is available) are drawn.
+    Nodes are populations. Edges ``i → j`` are drawn with width and colour
+    proportional to ``TE[i, j]`` (clipped to non-zero entries). Node fill
+    intensity encodes out-strength (sum of outgoing TE). When
+    ``null_result`` is provided, only edges with ``p_fdr < alpha`` (or
+    ``p < alpha`` if no FDR is available) are drawn.
 
     Parameters
     ----------
@@ -61,7 +71,7 @@ def figure_te_network(te_result: TransferEntropyResult,
         order; ``"spring"`` runs a force-directed layout via
         :func:`networkx.spring_layout` with ``seed=seed``.
     palette
-        Palette name (used for node fill and edge colour gradient).
+        Palette name (drives text/outline colour).
     ax
         Existing ``Axes`` to draw into.
     figsize
@@ -72,6 +82,8 @@ def figure_te_network(te_result: TransferEntropyResult,
         If ``False``, hide nodes that have no significant in- or out-edges.
     width_scale
         Multiplier from TE magnitude to edge linewidth (default 4).
+    title
+        Bold sans-serif suptitle above the panel. ``None`` suppresses it.
 
     Returns
     -------
@@ -159,28 +171,44 @@ def figure_te_network(te_result: TransferEntropyResult,
     else:
         node_px, label_pt, label_offset = 180, 6.5, 0.30
 
-    node_colors = _categorical_colors(palette, len(G.nodes()))
-    nx.draw_networkx_nodes(G, pos, ax=ax, node_size=node_px,
+    # Per-node out-strength → node fill on the red sequential cmap. Nodes
+    # that emit no significant edges stay near white (pale red), strong
+    # senders go deep red.
+    node_list = list(G.nodes())
+    out_strength = np.array([
+        sum(G[u][v]["weight"] for v in G.successors(u)) for u in node_list
+    ], dtype=float) if n_edges > 0 else np.zeros(n_nodes)
+    if out_strength.max() > 0:
+        node_norm = Normalize(vmin=0.0, vmax=float(out_strength.max()))
+        node_colors = [_NODE_CMAP(node_norm(s)) for s in out_strength]
+    else:
+        node_colors = ["#FFFFFF"] * n_nodes
+
+    nx.draw_networkx_nodes(G, pos, ax=ax, nodelist=node_list,
+                           node_size=node_px,
                            node_color=node_colors, edgecolors=p["text"],
                            linewidths=0.7)
 
-    # Edge widths.
+    # Edge widths AND edge colours encode TE magnitude on the green cmap.
     if n_edges > 0:
-        widths = [width_scale * np.sqrt(G[u][v]["weight"] / max(max_w, 1e-12))
-                  for u, v in G.edges()]
+        edge_norm = Normalize(vmin=0.0, vmax=max_w)
+        widths = []
+        ecolors = []
+        for u, v in G.edges():
+            w = G[u][v]["weight"]
+            widths.append(width_scale * np.sqrt(w / max(max_w, 1e-12)))
+            ecolors.append(_EDGE_CMAP(edge_norm(w)))
         nx.draw_networkx_edges(
             G, pos, ax=ax,
             width=widths,
-            edge_color=p["signal"],
+            edge_color=ecolors,
             arrows=True, arrowstyle="-|>", arrowsize=10,
             connectionstyle="arc3,rad=0.15",
             node_size=node_px,
-            alpha=0.85,
+            alpha=0.9,
         )
 
-    # Labels offset radially OUTSIDE the node circle. With many nodes the
-    # offset grows so the white-backed label never overlaps the node disk
-    # nor a neighbour's label.
+    # Labels offset radially OUTSIDE the node circle.
     if pos:
         cx = float(np.mean([v[0] for v in pos.values()]))
         cy = float(np.mean([v[1] for v in pos.values()]))
@@ -202,14 +230,12 @@ def figure_te_network(te_result: TransferEntropyResult,
     ax.set_ylim(-lim, lim)
     ax.set_aspect("equal")
 
-    box = (fr"$\alpha$ = {alpha}" + "\n"
-           f"edges = {n_edges} / {n_total}")
     if n_edges == 0:
         ax.text(0.5, 0.02,
                 "no FDR-significant edges at this α",
                 transform=ax.transAxes, ha="center", va="bottom",
                 fontsize=7, color=p["muted"], style="italic")
-    # Circular node layout fills the frame; top-right corner is the only
-    # consistently empty zone (top-left is reserved for the panel letter).
-    stats_box(ax, box, corner="tr")
+
+    if title:
+        fig.suptitle(title, fontweight="bold", fontsize=9)
     return fig
