@@ -413,5 +413,7 @@ def transfer_entropy(rec: SpikeRecording,
                 "bias": bias,
                 "n_jobs": int(n_jobs),
                 "discretize": discretize,
-                "n_quantile_bins": int(n_quantile_bins)},
+                "n_quantile_bins": int(n_quantile_bins),
+                "history_k": 1,
+                "history_l": 1},
     )

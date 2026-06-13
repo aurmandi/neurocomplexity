@@ -49,6 +49,10 @@ from neurocomplexity.analysis.dimensionality import (
 from neurocomplexity.analysis.manifold import ManifoldResult, manifold
 from neurocomplexity.analysis.mse import MSEResult, multiscale_entropy
 from neurocomplexity.analysis.pid import PIDResult, partial_information
+from neurocomplexity.analysis.selection import (
+    rate_matched_subsample,
+    top_firing_band,
+)
 from neurocomplexity.analysis.shape_collapse import (
     ShapeCollapseResult,
     shape_collapse,
@@ -78,4 +82,5 @@ __all__ = [
     "lmc_complexity", "LMCResult",
     "multiscale_entropy", "MSEResult",
     "manifold", "ManifoldResult",
+    "top_firing_band", "rate_matched_subsample",
 ]
