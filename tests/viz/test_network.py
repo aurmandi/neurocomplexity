@@ -140,10 +140,11 @@ def test_accepts_ax_kwarg():
 
 
 def test_suptitle_present_by_default():
+    # Title is the axes title (centred over the circular graph), not a
+    # figure suptitle which would shift left over the colourbar.
     M = _make_matrix()
     fig = figure_te_network(_te_result(M))
-    sup = fig._suptitle
-    assert sup is not None and sup.get_text() != ""
+    assert fig.axes[0].get_title() != ""
     plt.close(fig)
 
 

@@ -46,6 +46,7 @@ def figure_te_network(te_result: TransferEntropyResult,
                       seed: int = 0,
                       show_disconnected: bool = True,
                       width_scale: float = 4.0,
+                      node_gap: float = 1.0,
                       title: str | None = "Effective Connectivity (Transfer Entropy)",
                       ):
     """Render a directed effective-connectivity network from a TE matrix.
@@ -149,9 +150,11 @@ def figure_te_network(te_result: TransferEntropyResult,
         isolates = [n for n in list(G.nodes()) if G.in_degree(n) == 0 and G.out_degree(n) == 0]
         G.remove_nodes_from(isolates)
 
-    # Layout.
+    # Layout. ``node_gap`` scales the circle radius outward so node centres
+    # sit farther apart (markers keep their point size → larger visible gaps)
+    # while staying inside the padded frame.
     if layout == "circular":
-        pos = nx.circular_layout(G)
+        pos = nx.circular_layout(G, scale=node_gap)
     else:
         pos = nx.spring_layout(G, seed=seed)
 
@@ -241,8 +244,9 @@ def figure_te_network(te_result: TransferEntropyResult,
                               edgecolor="none"))
 
     ax.set_axis_off()
-    # Expand axis box so offset labels are not clipped.
-    lim = 1.5 + label_offset
+    # Expand axis box so offset labels are not clipped. Tracks ``node_gap``
+    # so a larger circle keeps just enough margin for the radial labels.
+    lim = node_gap + label_offset + 0.2
     ax.set_xlim(-lim, lim)
     ax.set_ylim(-lim, lim)
     ax.set_aspect("equal")
@@ -253,6 +257,8 @@ def figure_te_network(te_result: TransferEntropyResult,
                 transform=ax.transAxes, ha="center", va="bottom",
                 fontsize=7, color=p["muted"], style="italic")
 
+    # Axes title (not suptitle) so it centres over the circular graph rather
+    # than over the figure+colourbar box (which shifts it left).
     if title:
-        fig.suptitle(title, fontweight="bold", fontsize=9)
+        ax.set_title(title, loc="center", fontweight="bold", fontsize=9, pad=6)
     return fig

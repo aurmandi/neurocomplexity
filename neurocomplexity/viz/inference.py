@@ -382,9 +382,11 @@ def figure_significance_matrix(
     cb.outline.set_linewidth(0.6)
 
     # Asterisk ladder + significant-cell count belong in the figure caption,
-    # not on the panel itself; the bold suptitle alone marks the figure.
+    # not on the panel itself; the bold title alone marks the figure.
+    # Use the axes title (not suptitle) so it centres over the heatmap, not
+    # over the figure+colourbar bounding box (which pulls it left).
     if title:
-        fig.suptitle(title, fontweight="bold", fontsize=9)
+        ax.set_title(title, loc="center", fontweight="bold", fontsize=9, pad=8)
 
     _apply_panel_label(ax, panel_label)
     return fig
