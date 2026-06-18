@@ -9,7 +9,7 @@ description = "Criticality, transfer entropy, and autonomy analyses for spike-so
 readme = "README.md"
 requires-python = ">=3.10,<3.14"
 license = { text = "MIT" }
-authors = [{ name = "Sazgar Arman Dinarvand" }]
+authors = [{ name = "Arman Dinarvand" }]
 dependencies = [
     "numpy>=1.24,<3",
     "scipy>=1.10,<2",

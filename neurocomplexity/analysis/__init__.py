@@ -64,7 +64,9 @@ from neurocomplexity.analysis.surrogates import (
     shuffle_isis,
 )
 from neurocomplexity.analysis.transfer_entropy import (
+    ConditionalTransferEntropyResult,
     TransferEntropyResult,
+    conditional_transfer_entropy,
     transfer_entropy,
 )
 
@@ -83,4 +85,5 @@ __all__ = [
     "multiscale_entropy", "MSEResult",
     "manifold", "ManifoldResult",
     "top_firing_band", "rate_matched_subsample",
+    "conditional_transfer_entropy", "ConditionalTransferEntropyResult",
 ]

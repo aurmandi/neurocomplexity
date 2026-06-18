@@ -77,15 +77,31 @@ class TransferEntropyResult:
 
 def _schreiber_te_general(source_d: np.ndarray, target_d: np.ndarray,
                            K: int, delay: int = 1,
-                           bias: str = "miller_madow") -> float:
-    """Plug-in TE for arbitrary-alphabet discrete sequences.
+                           bias: str = "miller_madow",
+                           history_k: int = 1,
+                           history_l: int = 1) -> float:
+    """Plug-in TE for arbitrary-alphabet discrete sequences with optional
+    history embedding.
 
     Both inputs must be integer arrays in ``[0, K)`` of equal length. The
-    estimator matches the binary-state form (Schreiber 2000, k=l=1) but
-    generalises to ``K`` symbols by computing the 3-way joint
-    ``p(y_t, y_{t-delay}, x_{t-delay})`` via ``np.bincount`` on a flat
-    index. Miller-Madow ``(m-1)/(2N)`` correction is applied with the
-    two-stage clamp (raw plug-in ≥ 0, then correction, then final clamp).
+    estimator matches the binary-state form (Schreiber 2000) at the legacy
+    ``k = l = 1`` setting, and generalises to embeddings ``k = history_k``
+    (target past length) and ``l = history_l`` (source past length) by
+    forming the joint state index over
+
+        (y_future,
+         y_{t-delay}, ..., y_{t-delay-k+1},
+         x_{t-delay}, ..., x_{t-delay-l+1})
+
+    of total alphabet size ``K^(1 + k + l)``. Miller-Madow
+    ``(m - 1) / (2N)`` correction is applied to the occupied joint cells
+    with the two-stage clamp (raw plug-in >= 0, then correction, then
+    final clamp).
+
+    Setting ``history_k = history_l = 1`` recovers the legacy three-cell
+    joint exactly, modulo float arithmetic; the regression test
+    ``test_k1_l1_matches_legacy_binary_estimator`` enforces parity
+    against :func:`_binary_schreiber_te` on a binary alphabet.
     """
     y = np.asarray(target_d, dtype=np.int64)
     x = np.asarray(source_d, dtype=np.int64)
@@ -93,40 +109,71 @@ def _schreiber_te_general(source_d: np.ndarray, target_d: np.ndarray,
         raise ValueError("alphabet K must be >= 2")
     if y.size != x.size:
         raise ValueError("source and target must be the same length")
-    T = y.size
-    if T <= delay + 1:
-        return 0.0
-    y_future = y[delay:]
-    y_past = y[:-delay]
-    x_past = x[:-delay]
-    N = int(y_future.size)
+    if history_k < 1 or history_l < 1:
+        raise ValueError("history_k and history_l must be >= 1")
+    if delay < 1:
+        raise ValueError("delay must be >= 1")
 
-    K2 = K * K
-    flat = K2 * y_future + K * y_past + x_past
-    counts = np.bincount(flat, minlength=K2 * K).astype(np.float64)
+    k, l = int(history_k), int(history_l)
+    T = y.size
+    # Earliest sample index needed for any past lag.
+    embed = delay + max(k, l) - 1
+    N = T - embed
+    if N <= 0:
+        return 0.0
+    base = np.arange(N) + embed
+
+    y_future = y[base]
+    y_past = np.stack(
+        [y[base - delay - h] for h in range(k)], axis=1,
+    )  # (N, k)
+    x_past = np.stack(
+        [x[base - delay - h] for h in range(l)], axis=1,
+    )  # (N, l)
+
+    n_dims = 1 + k + l
+    cols = np.concatenate([y_future[:, None], y_past, x_past], axis=1)
+    # Flat index: most-significant = y_future, then y_past_0..y_past_{k-1},
+    # then x_past_0..x_past_{l-1}. Total alphabet = K^(1 + k + l).
+    powers = K ** np.arange(n_dims - 1, -1, -1, dtype=np.int64)
+    flat = (cols * powers[None, :]).sum(axis=1)
+    M_total = int(K ** n_dims)
+    counts = np.bincount(flat, minlength=M_total).astype(np.float64)
     p = counts / N
 
-    # Marginalise: p(yf, yp, xp) is stored at index K2*yf + K*yp + xp.
-    p3 = p.reshape(K, K, K)            # (yf, yp, xp)
-    p_yp_xp = p3.sum(axis=0)           # marginal over yf
-    p_yf_yp = p3.sum(axis=2)           # marginal over xp
-    p_yp = p3.sum(axis=(0, 2))         # marginal yp
+    shape = (K,) * n_dims
+    p_full = p.reshape(shape)
+    y_past_axes = tuple(range(1, 1 + k))
+    x_past_axes = tuple(range(1 + k, 1 + k + l))
 
-    # Vectorised plug-in TE
-    # te = sum p(yf,yp,xp) * log[ p(yf,yp,xp) * p(yp) / ( p(yp,xp) * p(yf,yp) ) ]
-    num = p3 * p_yp[None, :, None]
-    den = p_yp_xp[None, :, :] * p_yf_yp[:, :, None]
+    # Marginals on the (1 + k + l)-dim table.
+    p_yf_yp = p_full.sum(axis=x_past_axes)              # (1+k)-dim
+    p_yp_xp = p_full.sum(axis=(0,))                     # (k+l)-dim
+    p_yp = p_full.sum(axis=(0,) + x_past_axes)          # (k)-dim
+
+    # Broadcast back to full shape using None inserts.
+    p_yp_b = p_yp[(None,) + (slice(None),) * k + (None,) * l]
+    p_yp_xp_b = p_yp_xp[(None,) + (slice(None),) * (k + l)]
+    p_yf_yp_b = p_yf_yp[(slice(None),) * (1 + k) + (None,) * l]
+
+    num = p_full * p_yp_b
+    den = p_yp_xp_b * p_yf_yp_b
     with np.errstate(divide="ignore", invalid="ignore"):
-        ratio = np.where((p3 > 0) & (den > 0), num / den, 1.0)
-        log_ratio = np.where((p3 > 0) & (den > 0), np.log(ratio), 0.0)
-    te = float(np.sum(p3 * log_ratio))
+        mask = (p_full > 0) & (den > 0) & (num > 0)
+        ratio = np.where(mask, num / den, 1.0)
+        log_ratio = np.where(mask, np.log(ratio), 0.0)
+    te = float(np.sum(p_full * log_ratio))
 
     if bias == "none":
         correction = 0.0
     elif bias == "roulston":
-        m_x = int(np.unique(x_past).size)
-        m_y = int(np.unique(y_past).size)
-        correction = (m_x - 1) * (m_y - 1) / (2.0 * N)
+        # Roulston-style product correction over occupied alphabets in each
+        # marginal (yf x yp x xp).
+        m_yf = int(np.unique(y_future).size)
+        m_yp = int(np.unique(y_past).size)
+        m_xp = int(np.unique(x_past).size)
+        correction = (max(m_yf - 1, 0) * max(m_yp - 1, 0)
+                      * max(m_xp - 1, 0) / (2.0 * N))
     elif bias == "miller_madow":
         m = int(np.sum(counts > 0))
         correction = (m - 1) / (2.0 * N)
@@ -225,6 +272,8 @@ def transfer_entropy(rec: SpikeRecording,
                      *,
                      discretize: str = "binary",
                      n_quantile_bins: int = 3,
+                     history_k: int = 1,
+                     history_l: int = 1,
                      ) -> TransferEntropyResult:
     """Pairwise TE matrix across the given populations and (optionally) signals.
 
@@ -291,6 +340,8 @@ def transfer_entropy(rec: SpikeRecording,
         )
     if discretize != "binary" and int(n_quantile_bins) < 2:
         raise ValueError("n_quantile_bins must be >= 2")
+    if int(history_k) < 1 or int(history_l) < 1:
+        raise ValueError("history_k and history_l must be >= 1")
     if populations is None:
         populations = list(rec.populations.keys())
     populations = list(populations)
@@ -374,14 +425,24 @@ def transfer_entropy(rec: SpikeRecording,
         K = int(n_quantile_bins)
 
     def _te_pair(s_idx: int, t_idx: int) -> float:
-        if discretize == "binary":
+        if discretize == "binary" and history_k == 1 and history_l == 1:
             return _binary_schreiber_te(
                 counts[:, s_idx], counts[:, t_idx],
                 delay=delay_bins, bias=bias,
             )
+        if discretize == "binary":
+            # binary alphabet but k>1 or l>1 — binarise on the fly and use
+            # the general plug-in.
+            src = (counts[:, s_idx] > 0).astype(np.int64)
+            tgt = (counts[:, t_idx] > 0).astype(np.int64)
+            return _schreiber_te_general(
+                src, tgt, K=2, delay=delay_bins, bias=bias,
+                history_k=history_k, history_l=history_l,
+            )
         return _schreiber_te_general(
             symbols[:, s_idx], symbols[:, t_idx], K=K,
             delay=delay_bins, bias=bias,
+            history_k=history_k, history_l=history_l,
         )
 
     mat = np.zeros((P, P), dtype=np.float64)
@@ -414,6 +475,262 @@ def transfer_entropy(rec: SpikeRecording,
                 "n_jobs": int(n_jobs),
                 "discretize": discretize,
                 "n_quantile_bins": int(n_quantile_bins),
-                "history_k": 1,
-                "history_l": 1},
+                "history_k": int(history_k),
+                "history_l": int(history_l)},
+    )
+
+
+@dataclass(frozen=True)
+class ConditionalTransferEntropyResult:
+    """Output of :func:`conditional_transfer_entropy`.
+
+    Attributes
+    ----------
+    value
+        Scalar CTE(source -> target | conditions) in **nats**. Estimator
+        is the multi-symbol Schreiber plug-in (Miller-Madow corrected) on
+        the joint state ``(y_future, y_past_k, x_past_l, z1_past_l, ...,
+        zM_past_l)``.
+    source, target
+        Population names.
+    conditions
+        Names of conditioning populations, in order.
+    bin_size_seconds
+        Bin size used to discretise.
+    delay_bins
+        Lag between source / condition past and target future.
+    history_k, history_l
+        Target-past and source/condition-past lengths.
+    source_rec
+        Provenance back-pointer.
+    params
+        Verbatim copy of keyword arguments passed to
+        :func:`conditional_transfer_entropy`.
+    """
+
+    value: float
+    source: str
+    target: str
+    conditions: tuple[str, ...]
+    bin_size_seconds: float
+    delay_bins: int
+    history_k: int
+    history_l: int
+    source_rec: object
+    params: dict = field(default_factory=dict)
+
+
+def _cte_general(y: np.ndarray, x: np.ndarray, z_list: list[np.ndarray],
+                 K: int, delay: int, bias: str,
+                 history_k: int, history_l: int) -> float:
+    """Multi-symbol conditional TE: TE(x -> y | z_list).
+
+    Joint table over
+    ``(y_future, y_past_k, x_past_l, z1_past_l, ..., zM_past_l)`` of
+    alphabet ``K``, total size ``K^(1 + k + (1 + M) * l)``. Miller-Madow
+    on occupied cells. The CTE identity used is
+
+        CTE = H(y_future | y_past, z_past)
+              - H(y_future | y_past, x_past, z_past)
+
+    Symbolically, with joint ``q(y_f, y_p, x_p, z_p)``:
+
+        CTE = sum q * log[ q(y_f, y_p, x_p, z_p) * q(y_p, z_p)
+                           / ( q(y_p, x_p, z_p) * q(y_f, y_p, z_p) ) ]
+    """
+    if K < 2:
+        raise ValueError("alphabet K must be >= 2")
+    if history_k < 1 or history_l < 1:
+        raise ValueError("history_k and history_l must be >= 1")
+    if delay < 1:
+        raise ValueError("delay must be >= 1")
+    M = len(z_list)
+    k, l = int(history_k), int(history_l)
+    embed = delay + max(k, l) - 1
+    T = y.size
+    N = T - embed
+    if N <= 0:
+        return 0.0
+    base = np.arange(N) + embed
+
+    y_future = y[base]
+    y_past = np.stack(
+        [y[base - delay - h] for h in range(k)], axis=1,
+    )  # (N, k)
+    x_past = np.stack(
+        [x[base - delay - h] for h in range(l)], axis=1,
+    )  # (N, l)
+    # Condition past uses lags 1..l (independent of the source delay), so
+    # that the immediate screener of an indirect-coupling chain
+    # ``X[t-delay] -> Z[t-1] -> Y[t]`` is captured even when ``delay > 1``.
+    # This is the same convention IDTxl uses for multivariate-TE conditioning.
+    z_past = [
+        np.stack([z[base - 1 - h] for h in range(l)], axis=1)
+        for z in z_list
+    ]  # list of (N, l)
+    z_block = (np.concatenate(z_past, axis=1) if z_past
+               else np.zeros((N, 0), dtype=np.int64))
+
+    n_dims = 1 + k + l + M * l
+    cols = np.concatenate([y_future[:, None], y_past, x_past, z_block], axis=1)
+    powers = K ** np.arange(n_dims - 1, -1, -1, dtype=np.int64)
+    flat = (cols * powers[None, :]).sum(axis=1)
+    M_total = int(K ** n_dims)
+    counts = np.bincount(flat, minlength=M_total).astype(np.float64)
+    p = counts / N
+    shape = (K,) * n_dims
+    p_full = p.reshape(shape)
+
+    yf_axis = 0
+    x_past_axes = tuple(range(1 + k, 1 + k + l))
+
+    p_yp_xp_zp = p_full.sum(axis=yf_axis)
+    p_yf_yp_zp = p_full.sum(axis=x_past_axes)
+    p_yp_zp = p_full.sum(axis=(yf_axis,) + x_past_axes)
+
+    full_slice = (slice(None),) * n_dims
+
+    def _expand(arr: np.ndarray, drop_axes: tuple[int, ...]) -> np.ndarray:
+        idx = list(full_slice)
+        for a in drop_axes:
+            idx[a] = None
+        return arr[tuple(idx)]
+
+    p_yp_xp_zp_b = _expand(p_yp_xp_zp, (yf_axis,))
+    p_yf_yp_zp_b = _expand(p_yf_yp_zp, x_past_axes)
+    p_yp_zp_b = _expand(p_yp_zp, (yf_axis,) + x_past_axes)
+
+    num = p_full * p_yp_zp_b
+    den = p_yp_xp_zp_b * p_yf_yp_zp_b
+    with np.errstate(divide="ignore", invalid="ignore"):
+        mask = (p_full > 0) & (den > 0) & (num > 0)
+        ratio = np.where(mask, num / den, 1.0)
+        log_ratio = np.where(mask, np.log(ratio), 0.0)
+    cte = float(np.sum(p_full * log_ratio))
+
+    if bias == "none":
+        correction = 0.0
+    elif bias in ("miller_madow", "roulston"):
+        # Miller-Madow on the expanded joint. Roulston is aliased here
+        # because the multi-factor product form has no canonical extension
+        # to the multi-condition case.
+        m = int(np.sum(counts > 0))
+        correction = (m - 1) / (2.0 * N)
+    else:
+        raise ValueError(
+            f"unknown bias={bias!r}; choose 'miller_madow', 'roulston', or 'none'"
+        )
+    cte_raw = max(0.0, cte)
+    return max(0.0, cte_raw - correction)
+
+
+def conditional_transfer_entropy(
+    rec: SpikeRecording,
+    *,
+    source: str,
+    target: str,
+    conditions: Sequence[str],
+    bin_size_ms: float = 5.0,
+    delay_bins: int = 1,
+    bias: str = "miller_madow",
+    history_k: int = 1,
+    history_l: int = 1,
+    discretize: str = "binary",
+    n_quantile_bins: int = 3,
+) -> ConditionalTransferEntropyResult:
+    """Conditional transfer entropy ``CTE(source -> target | conditions)``.
+
+    Removes the part of bivariate TE(source -> target) explained by the
+    past of ``conditions``. Use this to dissolve indirect-coupling false
+    positives in a pairwise TE matrix when a common driver or relay is
+    observed: if ``X -> Z -> Y`` with no direct ``X -> Y`` arrow, pairwise
+    ``TE(X -> Y)`` is positive but ``CTE(X -> Y | Z)`` is near zero.
+
+    Parameters
+    ----------
+    source, target
+        Population names.
+    conditions
+        One or more population names to condition on (at least one).
+    bin_size_ms, delay_bins, bias, discretize, n_quantile_bins
+        Same semantics as :func:`transfer_entropy`.
+    history_k, history_l
+        Target-past and source-/condition-past embedding lengths.
+
+    Notes
+    -----
+    Joint-table memory is ``K^(1 + k + (1 + M) * l)`` where
+    ``M = len(conditions)``, ``k = history_k``, ``l = history_l``. Stay
+    near ``K = 2``, ``k = l = 1``, ``M = 1`` for spike-train workloads;
+    larger embeddings will exhaust memory.
+    """
+    from neurocomplexity._warnings import (
+        _warn_if_nonstationary,
+        _warn_if_uncurated,
+    )
+    _warn_if_uncurated(rec, "conditional_transfer_entropy")
+    _warn_if_nonstationary(rec, "conditional_transfer_entropy")
+    conditions = list(conditions)
+    if not conditions:
+        raise ValueError(
+            "conditional_transfer_entropy requires at least one condition; "
+            "for pairwise TE call transfer_entropy()."
+        )
+    if source == target:
+        raise ValueError("source and target must differ")
+    if source in conditions or target in conditions:
+        raise ValueError("conditions must not include source or target")
+    if discretize not in {"binary", "quantile"}:
+        raise ValueError(
+            f"unknown discretize={discretize!r}; choose 'binary' or 'quantile'"
+        )
+    bs = float(bin_size_ms) / 1000.0
+    streams = [target, source] + list(conditions)
+    counts = bin_spikes(rec, streams, bs)  # (T, len(streams))
+    if discretize == "binary":
+        symbols = (counts > 0).astype(np.int64)
+        K = 2
+    else:
+        from neurocomplexity.analysis.pid import _quantile_discretise
+        K = int(n_quantile_bins)
+        if K < 2:
+            raise ValueError("n_quantile_bins must be >= 2")
+        symbols = np.stack(
+            [
+                _quantile_discretise(counts[:, p].astype(np.float64), K)
+                for p in range(counts.shape[1])
+            ],
+            axis=1,
+        ).astype(np.int64)
+
+    y = symbols[:, 0]
+    x = symbols[:, 1]
+    z_list = [symbols[:, 2 + i] for i in range(len(conditions))]
+    value = _cte_general(
+        y, x, z_list, K=K, delay=int(delay_bins), bias=bias,
+        history_k=int(history_k), history_l=int(history_l),
+    )
+
+    return ConditionalTransferEntropyResult(
+        value=float(value),
+        source=source,
+        target=target,
+        conditions=tuple(conditions),
+        bin_size_seconds=bs,
+        delay_bins=int(delay_bins),
+        history_k=int(history_k),
+        history_l=int(history_l),
+        source_rec=rec.source,
+        params={
+            "source": source,
+            "target": target,
+            "conditions": list(conditions),
+            "bin_size_ms": float(bin_size_ms),
+            "delay_bins": int(delay_bins),
+            "bias": bias,
+            "discretize": discretize,
+            "n_quantile_bins": int(n_quantile_bins),
+            "history_k": int(history_k),
+            "history_l": int(history_l),
+        },
     )
