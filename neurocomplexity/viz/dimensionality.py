@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from neurocomplexity.viz._palettes import DEFAULT_PALETTE, get_palette
-from neurocomplexity.viz._style import _apply_panel_label, stats_box
+from neurocomplexity.viz._style import _apply_panel_label
 
 
 def _sorted_eig(result):
@@ -23,14 +23,8 @@ def _draw_cumulative(ax, eig, pr, n_units, *, p):
     ax.set_xlabel("Component index")
     ax.set_ylabel("Cumulative variance")
     ax.set_ylim(0, 1.04)
-    ax.legend(loc="lower right", handlelength=1.6, borderpad=0.3)
-    ratio = pr / max(n_units, 1)
-    # Cumulative-variance panel rises from lower-left to upper-right →
-    # top-LEFT corner is empty for the parameters box.
-    annot = f"N = {n_units}\nPR = {pr:.1f}\nPR/N = {ratio:.2f}"
-    if ratio > 0.85:
-        annot += "\nsaturated"
-    stats_box(ax, annot, corner="tl")
+    # Curve rises lower-left → upper-right, so the top-left corner is empty.
+    ax.legend(loc="upper left", handlelength=1.6, borderpad=0.3)
 
 
 def figure_dimensionality(
@@ -39,6 +33,7 @@ def figure_dimensionality(
     palette: str = DEFAULT_PALETTE,
     panel_label: str | None = None,
     figsize: tuple[float, float] | None = None,
+    title: str | None = None,
     ax=None,
 ):
     """Plot the covariance eigenspectrum and participation ratio.
@@ -73,20 +68,14 @@ def figure_dimensionality(
     if floor > 0:
         ax_scree.axhline(floor, ls=":", lw=0.7, color=p["muted"],
                          label="median (noise floor)")
-        # Legend bottom-left: scree decays from upper-left → lower-right,
-        # so the TR corner is reserved for the parameters box.
-        ax_scree.legend(loc="lower left", handlelength=1.6)
+        ax_scree.legend(loc="upper right", handlelength=1.6)
     ax_scree.set_xlabel("Component index")
     ax_scree.set_ylabel("Eigenvalue")
-    # Scree decays from upper-left → lower-right; top-RIGHT empty.
-    stats_box(ax_scree,
-              f"N = {result.n_units}\n"
-              f"$\\lambda_1$ = {eig[0]:.2g}\n"
-              f"median = {float(np.median(eig)):.2g}",
-              corner="tr")
 
     _draw_cumulative(ax_cum, eig, result.participation_ratio,
                      result.n_units, p=p)
 
+    if title:
+        fig.suptitle(title, fontweight="bold", fontsize=9)
     _apply_panel_label(ax_scree, panel_label)
     return fig

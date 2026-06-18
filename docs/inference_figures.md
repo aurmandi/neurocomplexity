@@ -11,7 +11,6 @@ return a `matplotlib.figure.Figure`, and accept the standard
 | `figure_bootstrap` | Histogram of bootstrap replicates with observed value + shaded confidence interval | One scalar statistic with a CI (`m̂`, `α_s`, PR, γ, autonomy) | `bootstrap_distribution`, `observed`, `ci_lower`, `ci_upper` |
 | `figure_null_test` | Histogram of the null/permutation distribution with observed marker + two-sided rejection region + `p` annotation | One scalar statistic tested against a surrogate null (is `m̂ ≠ random?`) | `null_distribution`, `observed`, `p_value`, optionally `p_value_fdr`, `effect_size` |
 | `figure_significance_matrix` | Effect-size heatmap with `*`/`**`/`***` markers per cell from `p_FDR` | Pairwise statistics: TE between every pop pair, PID atoms across regions, FC matrices | 2D `effect_size` (or `observed`) and 2D `p_value_fdr` (or `p_value`) |
-| `figure_volcano` | Scatter of effect size vs `−log₁₀ p_FDR`, threshold line at `α` | Many independent tests at once (TE screen across all pop pairs; PID screening across many sources) | 1D `effect_size` and 1D `p_value_fdr` (or `p_value`) |
 
 ---
 
@@ -134,51 +133,6 @@ for multi-source PID matrices. *Williams & Beer (2010)* — the original
 PID paper — uses Venn-style decompositions and tables for atoms, not
 matrices, so it is the reference for the **PID atoms themselves** but
 not for the matrix figure form.
-
----
-
-## 4. `figure_volcano`
-
-**What it is.** A scatter plot of *effect size* (x-axis) against
-`−log₁₀(p_FDR)` (y-axis). A dashed horizontal line marks the significance
-threshold `−log₁₀(α)`. Points above the line are highlighted in the
-palette's `signal` colour; non-significant points are muted. A vertical
-dotted line at zero anchors the effect-size sign.
-
-**What it does.** Lets a reader screen *many tests at once* and see
-which combinations of (large effect, small p) survive multiple-comparison
-correction. Tests in the top-left and top-right corners are the
-"significant + large effect" hits that drive the result; tests near the
-origin are the noise floor.
-
-**Why it is available for our data.** Whenever an analysis generates
-many independent tests — e.g. transfer-entropy across hundreds of
-pop-pair × time-lag combinations, or PID-screening across many candidate
-source pairs — the matrix view becomes unreadable. The volcano plot is
-the standard alternative: the same `InferenceResult.effect_size` and
-`p_value_fdr` (1D when flattened) drive both figures, and you typically
-report one or the other depending on `n_tests`.
-
-**Three-colour scheme.** Following the genomics convention (Cui &
-Churchill 2003): n.s. in grey (palette ``muted``), down-regulated in
-the palette ``signal`` colour, up-regulated in ``categorical[1]``. For
-strictly non-negative statistics (TE, MI) only the "up" bucket is
-populated, but the API keeps the three-bucket scatter so that
-colour-keys are consistent across call sites.
-
-**Reference figure form.** Originated in transcriptomics — Cui &
-Churchill (2003) *Genome Biology* "Statistical tests for differential
-expression in cDNA microarray experiments"; subsequent best-practice
-articulation in Li (2012) *Genomics, Proteomics & Bioinformatics*. The
-panel is now the standard multi-test summary in genomics and
-proteomics, and is adopted by Wollstadt et al. (2019) *J. Open Source
-Software* (IDTxl) for multi-test information-theoretic screens.
-
-*Note on Zalesky 2010 NBS.* The Network-Based Statistic is a different
-multi-test procedure: it tests the size of connected components in a
-thresholded p-value graph against a permutation null, and its figures
-are *connected-component p-distributions*, not volcano plots. We do
-**not** cite NBS as a volcano-plot precedent.
 
 ---
 

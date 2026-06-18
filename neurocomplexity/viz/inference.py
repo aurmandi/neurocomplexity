@@ -27,16 +27,6 @@ Four canonical inferential exhibits from the neuroscience-statistics literature:
   PID paper presents atoms as Venn-style decompositions, not matrices, so
   it is not cited here for the matrix form.
 
-* ``figure_volcano`` — scatter of effect size vs −log₁₀(p_FDR) with the
-  significance threshold drawn. Originated in genomics (Cui & Churchill
-  2003 *Genome Biology*; Li 2012 *Genomics, Proteomics & Bioinformatics*
-  review of volcano-plot conventions). For multi-test neuroscience
-  screens we follow the same convention; IDTxl (Wollstadt et al. 2019)
-  documents the panel for large-scale TE screens. The Zalesky, Fornito &
-  Bullmore (2010) Network-Based Statistic is a *different* multi-test
-  procedure (connected-component p-distributions) and is **not** cited
-  here for the volcano form.
-
 All functions take an :class:`InferenceResult`, return a matplotlib Figure,
 and share the standard ``palette=`` / ``panel_label=`` / ``figsize=`` /
 ``ax=`` API.
@@ -67,6 +57,7 @@ def figure_bootstrap(
     palette: str = DEFAULT_PALETTE,
     panel_label: str | None = None,
     figsize: tuple[float, float] | None = None,
+    title: str | None = None,
     ax=None,
     nbins: int = 40,
 ):
@@ -81,6 +72,7 @@ def figure_bootstrap(
     lo = _as_scalar(result.ci_lower)
     hi = _as_scalar(result.ci_upper)
 
+    external_ax = ax is not None
     p, fig, ax = _resolve_palette_and_axes(
         palette=palette, ax=ax, figsize=figsize, default_size=(4.0, 2.6),
     )
@@ -105,11 +97,11 @@ def figure_bootstrap(
         rug_y = 0.0
         ax.plot(boot, np.full_like(boot, rug_y), "|",
                 color=p["signal"], ms=6, mew=0.8, zorder=3)
-        ax.set_ylabel("Density")
+        ax.set_ylabel("Probability density")
     else:
         ax.hist(boot, bins=nbins, color=p["fill"], edgecolor=p["signal"],
                 linewidth=0.4, zorder=2)
-        ax.set_ylabel("Count")
+        ax.set_ylabel("Frequency")
 
     # CI band: soft neutral grey so the observed-line (signal) remains the
     # visual anchor of the panel.
@@ -121,21 +113,24 @@ def figure_bootstrap(
         ax.axvline(observed, color=p["accent"], lw=1.3, zorder=3,
                    label=f"observed = {observed:.3g}")
 
-    ax.set_xlabel(f"{result.statistic_name} (bootstrap replicates)")
+    # Literature convention: x-axis is the estimator itself (Efron &
+    # Tibshirani 1993). Render a single-symbol statistic name with an
+    # estimator hat (e.g. ``m`` → ``m̂``); leave longer names verbatim.
+    sym = result.statistic_name
+    xlab = (fr"$\hat{{{sym}}}$"
+            if isinstance(sym, str) and len(sym) == 1 and sym.isalpha()
+            else str(sym))
+    ax.set_xlabel(xlab)
 
-    # Legend + stats annotation placed ABOVE the data so neither obscures the
-    # histogram. Stats on the left of the title strip, legend on the right.
-    if lo is not None and hi is not None and observed is not None:
-        info = (f"observed = {observed:.3g}\n"
-                f"CI = [{lo:.3g}, {hi:.3g}]\n"
-                f"n = {result.n_resamples}")
-    else:
-        info = f"n = {result.n_resamples}"
-    # Stats box (bigger) → TL; legend (compact) → TR.
-    stats_box(ax, info, corner="tl")
-    ax.legend(loc="upper right", frameon=False, handlelength=1.6,
+    # Legend top-left (replaces the former stats box). The bootstrap cloud
+    # sits centre/right around the observed value, so the top-left corner is
+    # the empty one. observed value + CI live in the legend labels, so no
+    # separate annotation box is needed.
+    ax.legend(loc="upper left", frameon=False, handlelength=1.6,
               borderpad=0.3)
 
+    if title and not external_ax:
+        fig.suptitle(title, fontweight="bold", fontsize=9)
     _apply_panel_label(ax, panel_label)
     return fig
 
@@ -254,6 +249,7 @@ def figure_significance_matrix(
     alpha: float = 0.05,
     cmap: str | None = None,
     metric: str = "auto",
+    title: str | None = "Transfer Entropy Significance (FDR-corrected)",
 ):
     """Pairwise heatmap with FDR significance markers.
 
@@ -375,137 +371,22 @@ def figure_significance_matrix(
     ax.set_yticklabels(yl)
     ax.tick_params(top=False, right=False, length=2,
                    labelsize=5.5 if n_cols >= 8 else 6)
+    # TE[i, j] is directed flow source i -> target j: rows are senders,
+    # columns receivers. Label both so the asymmetry reads off the panel.
+    ax.set_xlabel("Target")
+    ax.set_ylabel("Source")
 
     cb = fig.colorbar(im, ax=ax, fraction=0.04, pad=0.03)
     cb.set_label(cb_label, fontsize=6.5)
     cb.ax.tick_params(labelsize=6)
     cb.outline.set_linewidth(0.6)
 
-    # Count significant cells (off-diagonal) for the title.
-    n_total_offdiag = (n_rows * n_cols
-                       - (n_rows if n_rows == n_cols else 0))
-    n_sig = int(np.sum(pvals < alpha)) if pvals.size else 0
-    if n_rows == n_cols:
-        diag_sig = int(np.sum(np.diag(pvals) < alpha)) if pvals.size else 0
-        n_sig = max(0, n_sig - diag_sig)
-    # Heatmap fills the axes; legend placed via title above
-    ax.set_title(
-        f"$\\ast$ p<{alpha:.2g}   $\\ast\\ast$ p<0.01   $\\ast\\ast\\ast$ p<0.001"
-        f"      {n_sig} / {n_total_offdiag} sig",
-        loc="left", fontsize=9, pad=4,
-    )
-
-    _apply_panel_label(ax, panel_label)
-    return fig
-
-
-def figure_volcano(
-    result: InferenceResult,
-    *,
-    palette: str = DEFAULT_PALETTE,
-    panel_label: str | None = None,
-    figsize: tuple[float, float] | None = None,
-    ax=None,
-    alpha: float = 0.05,
-):
-    """Effect size vs −log10(p_FDR) scatter with significance threshold.
-
-    Three-colour scheme — the canonical genomics volcano (Cui & Churchill 2003):
-
-      * **n.s.** (grey, palette ``muted``) — points with ``p_FDR ≥ alpha``.
-      * **down** (palette ``signal``) — significant points with ``effect < 0``.
-      * **up** (palette ``categorical[1]``) — significant points with ``effect > 0``.
-
-    For strictly non-negative effect sizes (e.g. transfer entropy) only the
-    "up" bucket is populated, but the API still produces a 3-bucket scatter so
-    figure colour-keys remain consistent across call sites.
-    """
-    eff = result.effect_size
-    pvals = result.p_value_fdr if result.p_value_fdr is not None else result.p_value
-    if eff is None or pvals is None:
-        raise ValueError(
-            "figure_volcano requires both effect_size and p_value (or p_value_fdr)"
-        )
-    eff = np.asarray(eff, dtype=float)
-    pvals = np.asarray(pvals, dtype=float)
-    # If the underlying statistic was a square pairwise matrix (e.g. TE
-    # between populations), drop the diagonal — self-pairs are not a test
-    # and stacking them at zero effect masks the off-diagonal points.
-    if eff.ndim == 2 and eff.shape[0] == eff.shape[1] and eff.shape[0] > 1:
-        n = eff.shape[0]
-        offdiag = ~np.eye(n, dtype=bool)
-        eff = eff[offdiag]
-        pvals = pvals[offdiag] if pvals.ndim == 2 else pvals.ravel()[:offdiag.sum()]
-    eff = eff.ravel()
-    pvals = pvals.ravel()
-    if eff.shape != pvals.shape:
-        raise ValueError(
-            f"effect_size shape {eff.shape} != p_value shape {pvals.shape}"
-        )
-    if eff.size < 2:
-        raise ValueError("figure_volcano expects multiple tests; got 1")
-
-    pvals_safe = np.clip(pvals, 1e-300, 1.0)
-    neg_log_p = -np.log10(pvals_safe)
-    significant = pvals_safe < alpha
-    sig_up = significant & (eff > 0)
-    sig_down = significant & (eff < 0)
-    nonsig = ~significant
-
-    p, fig, ax = _resolve_palette_and_axes(
-        palette=palette, ax=ax, figsize=figsize, default_size=(4.4, 3.0),
-    )
-
-    # Pick a distinct second colour for "up". Palette categorical[1] is the
-    # next semantic colour after signal; falls back to accent if categorical
-    # is too short.
-    cats = p.get("categorical", [])
-    up_colour = cats[1] if len(cats) > 1 else p["accent"]
-    down_colour = p["signal"]
-
-    ax.scatter(eff[nonsig], neg_log_p[nonsig],
-               s=32, color=p["muted"], alpha=0.85,
-               edgecolor=p["text"], linewidth=0.4,
-               label="n.s.")
-    ax.scatter(eff[sig_down], neg_log_p[sig_down],
-               s=36, color=down_colour, alpha=0.95,
-               edgecolor="white", linewidth=0.4,
-               label=f"down (p<{alpha:.2g})")
-    ax.scatter(eff[sig_up], neg_log_p[sig_up],
-               s=36, color=up_colour, alpha=0.95,
-               edgecolor="white", linewidth=0.4,
-               label=f"up (p<{alpha:.2g})")
-
-    threshold = -np.log10(alpha)
-    ax.axhline(threshold, color=p["accent"], lw=0.9, ls="--",
-               label=fr"$-\log_{{10}}\,\alpha$ = {threshold:.2f}")
-    ax.axvline(0.0, color=p["text"], lw=0.5, ls=":")
-    # Give the panel breathing room above the threshold and below zero so
-    # markers at p_FDR=1 are not flush against the x-axis spine.
-    y_top = max(threshold * 1.15, float(np.nanmax(neg_log_p)) + 0.3)
-    ax.set_ylim(-0.12, y_top)
-
-    ax.set_xlabel(
-        r"Effect size (z = (observed $-$ null mean) / null SD)"
-        if not np.all(eff >= -1e-12)
-        else f"Effect size ({result.statistic_name})"
-    )
-    ax.set_ylabel(r"$-\log_{10}\,p_{\mathrm{FDR}}$")
-
-    n_up = int(sig_up.sum())
-    n_down = int(sig_down.sum())
-    # Volcano data clusters along x=0 spine → top-LEFT covers points.
-    # TR is empty because effect-size tail is sparse at high x.
-    stats_box(
-        ax,
-        f"up = {n_up}\ndown = {n_down}\ntotal = {eff.size}\n"
-        f"n = {result.n_resamples}",
-        corner="tr",
-    )
-    # Legend BELOW the axes so the title strip is uncluttered.
-    ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.18), ncol=4,
-              frameon=False, handlelength=1.6, borderpad=0.3,
-              bbox_transform=ax.transAxes)
+    # Asterisk ladder + significant-cell count belong in the figure caption,
+    # not on the panel itself; the bold title alone marks the figure.
+    # Use the axes title (not suptitle) so it centres over the heatmap, not
+    # over the figure+colourbar bounding box (which pulls it left).
+    if title:
+        ax.set_title(title, loc="center", fontweight="bold", fontsize=9, pad=8)
 
     _apply_panel_label(ax, panel_label)
     return fig
