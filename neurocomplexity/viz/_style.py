@@ -87,7 +87,7 @@ def apply_style(palette: str = DEFAULT_PALETTE) -> None:
         "legend.handlelength": 1.6,
         "legend.borderpad": 0.3,
         "legend.columnspacing": 1.4,
-        "figure.dpi": 120,
+        "figure.dpi": 150,
         "figure.constrained_layout.use": True,
         "figure.constrained_layout.h_pad": 0.04,
         "figure.constrained_layout.w_pad": 0.04,
@@ -128,6 +128,30 @@ PALETTE = _LegacyPaletteAccessor()
 
 
 apply_style(palette=DEFAULT_PALETTE)
+
+
+def _enable_retina_inline() -> None:
+    """Crisp inline figures in Jupyter; no-op outside IPython/notebooks.
+
+    Jupyter renders the inline PNG at ``figure.dpi`` — at the default raster
+    density thin Tufte lines and small labels look soft. Requesting the
+    'retina' format doubles the device-pixel density so the panels are sharp
+    on HiDPI displays. ponytail: import-time best-effort, silently skipped in
+    plain scripts where there is no IPython.
+    """
+    try:
+        ip = get_ipython()  # type: ignore[name-defined]  # noqa: F821
+    except NameError:
+        return
+    if ip is None:
+        return
+    try:
+        ip.run_line_magic("config", "InlineBackend.figure_format = 'retina'")
+    except Exception:
+        pass
+
+
+_enable_retina_inline()
 
 
 def panel_label(ax, letter: str, *, x: float = -0.07, y: float = 1.02) -> None:
