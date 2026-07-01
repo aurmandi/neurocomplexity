@@ -84,7 +84,12 @@
   `MemoryError` on large (>20M-spike) recordings. Cache size is a pure
   performance parameter and never affects results.
 
-## v1.1.0 — 2026-05-17
+## v1.2.0 — 2026-07-01
+
+Content originally prepared as v1.1.0 (2026-05-17). That version's PyPI
+files were deleted and the filenames are permanently blocked from reuse
+by PyPI policy, so this identical release is republished under a new
+version number.
 
 ### Added
 - `nc.io.from_phy(directory)` — load a Phy curation directory.
