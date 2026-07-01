@@ -1,5 +1,5 @@
-<p align="center">
-  <img src="https://raw.githubusercontent.com/aurmandi/neurocomplexity/main/docs/_static/logo.svg" alt="neurocomplexity logo" width="160">
+<p align="left">
+  <img src="https://raw.githubusercontent.com/aurmandi/neurocomplexity/main/docs/_static/logo.svg" alt="neurocomplexity logo" width="260">
 </p>
 
 # neurocomplexity
@@ -12,14 +12,8 @@
 A Python package for measuring complexity, criticality and information flow in
 spike-sorted recordings. It started as a private prototype for analysing
 NetPyNE simulations and has been rewritten to run, instead, on real
-experimental data — Allen Institute Neuropixels, KiloSort/SpikeInterface
-output, anything that can be loaded into an NWB file.
-
-<p align="center">
-  <a href="https://codecov.io/gh/aurmandi/neurocomplexity">
-    <img src="https://codecov.io/gh/aurmandi/neurocomplexity/graphs/sunburst.svg?token=QRG1Q0YO82" alt="Codecov Sunburst" width="400"/>
-  </a>
-</p>
+experimental data: NWB/iloSort/Phy/SpikeInterface
+output.
 
 ## What's actually in it
 
