@@ -99,7 +99,7 @@ ignore = [
 # slim surface declared in `files=` so the gate is meaningful. The full
 # `neurocomplexity/` tree still has untyped defs in viz/cli/benchmarks
 # (tracked as 1.2 follow-up); the override block below documents that.
-python_version = "3.10"
+python_version = "3.12"
 files = [
     "neurocomplexity/_version.py",
     "neurocomplexity/warnings.py",
