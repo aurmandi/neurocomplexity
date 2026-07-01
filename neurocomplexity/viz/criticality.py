@@ -152,7 +152,7 @@ def figure_criticality(
         _draw_powerlaw_panel(ax, xs, ps, result.alpha_s, p=p,
                              x_label="Avalanche Size", y_label=yl_s,
                              exponent_sym=r"\tau", ref_exponent=_MF_TAU,
-                             ref_label=fr"critical ($\tau=3/2$)",
+                             ref_label=r"critical ($\tau=3/2$)",
                              cumulative=cumulative, markers=markers)
         _apply_panel_label(ax, panel_label)
         return fig
@@ -164,14 +164,14 @@ def figure_criticality(
     _draw_powerlaw_panel(ax_s, xs, ps, result.alpha_s, p=p,
                          x_label="Avalanche Size", y_label=yl_s,
                          exponent_sym=r"\tau", ref_exponent=_MF_TAU,
-                         ref_label=fr"critical ($\tau=3/2$)",
+                         ref_label=r"critical ($\tau=3/2$)",
                          title="Size Distribution",
                          cumulative=cumulative, markers=markers)
     xt, pt = _empirical_xy(result.lifetimes, display)
     _draw_powerlaw_panel(ax_t, xt, pt, result.alpha_t, p=p,
                          x_label="Avalanche Duration (s)", y_label=yl_t,
                          exponent_sym=r"\alpha", ref_exponent=_MF_ALPHA,
-                         ref_label=fr"critical ($\alpha=2$)",
+                         ref_label=r"critical ($\alpha=2$)",
                          title="Duration Distribution",
                          cumulative=cumulative, markers=markers)
 

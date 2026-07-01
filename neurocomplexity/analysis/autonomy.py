@@ -114,7 +114,7 @@ def _ols_ssr(y: np.ndarray, Z: np.ndarray) -> tuple[float, int, int]:
 
 def _autonomy_for(counts: np.ndarray, target_col: int, max_lag: int, *,
                   significance: str = "analytic", n_perm: int = 200,
-                  rng: "np.random.Generator | None" = None
+                  rng: np.random.Generator | None = None
                   ) -> tuple[float, float, int]:
     """Nested-OLS Granger F-test for one target. Same design matrix for full
     and reduced models, so the F-statistic is exactly F-distributed under the

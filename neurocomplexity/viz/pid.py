@@ -15,7 +15,6 @@ import numpy as np
 from neurocomplexity.viz._palettes import DEFAULT_PALETTE, get_palette
 from neurocomplexity.viz._style import _apply_panel_label
 
-
 # Atom colours (Okabe-Ito; Wibral 2014 / Luppi 2022 mapping).
 _PID_COLORS = {
     "redundancy": "#0072B2",   # blue   — shared information

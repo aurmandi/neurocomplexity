@@ -10,7 +10,10 @@ import pytest
 import neurocomplexity as nc
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "datasets"))
-from window_search import scan_joint_stationary, top_units_in_band  # noqa: E402
+try:
+    from window_search import scan_joint_stationary, top_units_in_band  # noqa: E402
+except ImportError:
+    pytest.skip("datasets/window_search.py not present (gitignored, local-only)", allow_module_level=True)
 
 
 def _toy_rec_multiarea(duration=600.0, units_per_area=15, rate=8.0, seed=0):

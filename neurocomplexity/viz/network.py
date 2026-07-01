@@ -25,7 +25,6 @@ from matplotlib.colors import LinearSegmentedColormap, Normalize
 from neurocomplexity.analysis.transfer_entropy import TransferEntropyResult
 from neurocomplexity.viz._palettes import DEFAULT_PALETTE, get_palette
 
-
 # Sequential cmaps: edges go pale → deep green (TE magnitude);
 # node fills go pale → deep red (out-strength). Matches the Stetter 2012
 # FIG 7 dMI/TE network convention adopted across the spike-train literature.
