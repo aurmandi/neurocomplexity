@@ -48,13 +48,6 @@ exclude_patterns = [
     ".DS_Store",
     "paper/**",
     "plans/**",
-    # Internal development / audit reports — kept in-repo for provenance but
-    # not part of the rendered user documentation.
-    "phase*.md",
-    "*_review_*.md",
-    "*_revision_*.md",
-    "publication_plan.md",
-    "tutorial_agent_prompt.md",
 ]
 
 html_theme = "furo"
