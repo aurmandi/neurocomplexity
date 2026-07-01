@@ -60,6 +60,8 @@ exclude_patterns = [
 html_theme = "furo"
 html_static_path = ["_static"]
 html_title = f"neurocomplexity {release}"
+html_logo = "_static/logo.svg"
+html_favicon = "_static/favicon.ico"
 
 autodoc_default_options = {
     "members": True,

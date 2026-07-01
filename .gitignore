@@ -55,3 +55,8 @@ docs/_build/
 docs/.jupyter_cache
 .rtk/
 .rtk/filters.toml
+
+# local demonstration suite — keep offline until paper submission
+examples/demos/
+
+CLAUDE.md

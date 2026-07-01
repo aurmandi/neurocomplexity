@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/aurmandi/neurocomplexity/main/docs/_static/logo.svg" alt="neurocomplexity logo" width="160">
+</p>
+
 # neurocomplexity
 
 [![tests](https://github.com/aurmandi/neurocomplexity/actions/workflows/test.yml/badge.svg)](https://github.com/aurmandi/neurocomplexity/actions/workflows/test.yml)
